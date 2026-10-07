@@ -159,6 +159,7 @@ class PatientProfileTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   child: InkWell(
                     onTap: () {
+                      state.logout();
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(
                           builder: (context) => const WelcomeScreen(),

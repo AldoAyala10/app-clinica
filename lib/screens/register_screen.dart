@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
 import '../widgets/tooth_logo.dart';
@@ -62,9 +63,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    AppState.session.patientName = _nameController.text.trim();
+    AppState.session.patientEmail = email.trim();
+    AppState.session.login(UserRole.patient);
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('¡Cuenta creada exitosamente! Bienvenido a Clínica Dental'),
+        content: Text('Sesión de demostración iniciada. La cuenta no se guarda.'),
         backgroundColor: AppTheme.successGreen,
       ),
     );

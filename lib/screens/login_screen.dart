@@ -5,6 +5,7 @@ import '../widgets/tooth_logo.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../state/app_state.dart';
+import '../data/mock_auth_repository.dart';
 import 'register_screen.dart';
 import 'doctor/doctor_main_screen.dart';
 import 'patient/patient_main_screen.dart';
@@ -17,8 +18,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'dr.sandoval@labstock.com');
-  final _passwordController = TextEditingController(text: '••••••••');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   UserRole _selectedRole = UserRole.doctor;
   List<String> _validationErrors = const [];
@@ -62,7 +63,16 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    if (_selectedRole == UserRole.doctor) {
+    final role = const MockAuthRepository().authenticate(email, password);
+    if (role == null || role != _selectedRole) {
+      setState(() {
+        _validationErrors = ['Credenciales incorrectas para el rol seleccionado.'];
+      });
+      return;
+    }
+    AppState.session.login(role);
+
+    if (role == UserRole.doctor) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => const DoctorMainScreen(),
@@ -144,7 +154,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               onTap: () {
                                 setState(() {
                                   _selectedRole = UserRole.doctor;
-                                  _emailController.text = 'dr.sandoval@labstock.com';
+                                  _emailController.text = 'admin@test.com';
+                                  _passwordController.clear();
                                 });
                               },
                               child: Container(
@@ -189,7 +200,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               onTap: () {
                                 setState(() {
                                   _selectedRole = UserRole.patient;
-                                  _emailController.text = 'maria.moreno@gmail.com';
+                                  _emailController.text = 'paciente@test.com';
+                                  _passwordController.clear();
                                 });
                               },
                               child: Container(
@@ -233,6 +245,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+
+                    const Text(
+                      'Demo: admin@test.com / admin123 o paciente@test.com / paciente123',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    ),
 
                     // Email Field
                     CustomTextField(

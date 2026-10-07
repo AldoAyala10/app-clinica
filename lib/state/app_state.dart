@@ -10,15 +10,17 @@ enum UserRole {
 }
 
 class AppState extends ChangeNotifier {
+  static final AppState session = AppState();
+
   UserRole _currentRole = UserRole.doctor;
   UserRole get currentRole => _currentRole;
 
-  bool _isLoggedIn = true;
+  bool _isLoggedIn = false;
   bool get isLoggedIn => _isLoggedIn;
 
   // Patient Profile Info
   String patientName = 'María Moreno';
-  String patientEmail = 'maria.moreno@email.com';
+  String patientEmail = 'paciente@test.com';
   String patientPhone = '+52 442 892 1042';
 
   // Doctor Profile Info
@@ -199,7 +201,7 @@ class AppState extends ChangeNotifier {
       patientName: 'María Moreno',
       doctorName: 'Dra. Sofía Vega',
       specialty: 'Ortodoncia - Revisión Mensual',
-      date: DateTime(2024, 10, 18),
+      date: DateTime.now().add(const Duration(days: 3)),
       time: '10:00 AM - 11:00 AM',
       status: AppointmentStatus.confirmada,
       notes: 'Revisión mensual de brackets estéticos de zafiro',
@@ -210,7 +212,7 @@ class AppState extends ChangeNotifier {
       patientName: 'María Moreno',
       doctorName: 'Dr. Carlos Sandoval',
       specialty: 'Limpieza Dental y Profilaxis',
-      date: DateTime(2024, 11, 5),
+      date: DateTime.now().add(const Duration(days: 12)),
       time: '04:30 PM - 05:30 PM',
       status: AppointmentStatus.pendiente,
       notes: 'Profilaxis ultrasónica semestral',
@@ -221,7 +223,7 @@ class AppState extends ChangeNotifier {
       patientName: 'María Moreno',
       doctorName: 'Dra. Sofía Vega',
       specialty: 'Ajuste de Retenedor',
-      date: DateTime(2024, 8, 14),
+      date: DateTime.now().subtract(const Duration(days: 30)),
       time: '11:00 AM - 12:00 PM',
       status: AppointmentStatus.completada,
       notes: 'Ajuste final exitoso',
@@ -230,6 +232,17 @@ class AppState extends ChangeNotifier {
   ];
 
   List<Appointment> get appointments => _appointments;
+
+  List<Appointment> get upcomingPatientAppointments {
+    final now = DateTime.now();
+    final result = _appointments.where((appointment) =>
+        appointment.patientName == patientName &&
+        !appointment.date.isBefore(DateTime(now.year, now.month, now.day)) &&
+        (appointment.status == AppointmentStatus.confirmada ||
+            appointment.status == AppointmentStatus.pendiente)).toList();
+    result.sort((a, b) => a.date.compareTo(b.date));
+    return result;
+  }
 
   // LabStock Dental Laboratory Supplies
   final List<InventoryItem> _inventory = [
@@ -298,11 +311,6 @@ class AppState extends ChangeNotifier {
   List<InventoryItem> get inventory => _inventory;
 
   // State modification actions
-  void setRole(UserRole role) {
-    _currentRole = role;
-    notifyListeners();
-  }
-
   void login(UserRole role) {
     _currentRole = role;
     _isLoggedIn = true;

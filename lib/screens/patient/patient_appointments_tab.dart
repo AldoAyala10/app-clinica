@@ -28,16 +28,13 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab> {
         .where((a) => a.patientName == widget.state.patientName)
         .toList();
 
-    final upcoming = patientAppointments
-        .where((a) =>
-            a.status == AppointmentStatus.confirmada ||
-            a.status == AppointmentStatus.pendiente)
-        .toList();
+    final upcoming = widget.state.upcomingPatientAppointments;
 
     final past = patientAppointments
         .where((a) =>
             a.status == AppointmentStatus.completada ||
-            a.status == AppointmentStatus.cancelada)
+            a.status == AppointmentStatus.cancelada ||
+            a.date.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)))
         .toList();
 
     final activeList = _selectedTabIndex == 0 ? upcoming : past;
