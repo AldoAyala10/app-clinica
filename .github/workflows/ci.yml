@@ -5,18 +5,74 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      simular_fallo:
+        description: 'Simular un error para demostrar la notificacion por correo'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
 
 jobs:
   test-and-build:
+    name: Flutter, SonarQube y compilacion Android
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      - run: flutter pub get
-      - name: Pruebas unitarias y de interfaz
-        run: flutter test
-      - name: Compilación Android
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Pruebas unitarias, interfaz y cobertura
+        run: flutter test --coverage
+
+      - name: Compilacion Android
         run: flutter build apk --debug
+
+      - name: Verificar configuracion de SonarQube
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+        run: |
+          if [[ -z "$SONAR_TOKEN" || -z "$SONAR_PROJECT_KEY" || -z "$SONAR_ORGANIZATION" ]]; then
+            echo '::error::Configura SONAR_TOKEN (secret), SONAR_PROJECT_KEY y SONAR_ORGANIZATION (variables).'
+            exit 1
+          fi
+          echo 'Configuracion de SonarQube encontrada.'
+
+      - name: Analisis SonarQube y Quality Gate
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.sources=lib
+            -Dsonar.tests=test
+            -Dsonar.sourceEncoding=UTF-8
+            -Dsonar.dart.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
+
+      - name: Simulacion de fallo (solo manual)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.simular_fallo }}
+        run: |
+          echo '::error::Fallo intencional de demostracion para comprobar el correo de GitHub Actions.'
+          exit 1
