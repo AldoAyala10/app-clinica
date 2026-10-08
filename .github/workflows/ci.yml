@@ -20,3 +20,16 @@ jobs:
         run: flutter test
       - name: Compilación Android
         run: flutter build apk --debug
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Notificar falla por WebHook (Discord / Slack)
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"⚠️ El pipeline CI ha fallado en ${{ github.repository }}. Revisa GitHub Actions."}' \
+          ${{ secrets.WEBHOOK_URL }}
