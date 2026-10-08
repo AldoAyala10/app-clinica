@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
 import '../welcome_screen.dart';
-import '../patient/patient_main_screen.dart';
 import 'doctor_dashboard_tab.dart';
 import 'doctor_agenda_tab.dart';
 import 'doctor_patients_tab.dart';
@@ -22,14 +21,25 @@ class _DoctorMainScreenState extends State<DoctorMainScreen> {
   @override
   void initState() {
     super.initState();
-    _state = AppState();
-    _state.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _state = AppState.session;
+    _state.addListener(_onStateChanged);
+  }
+
+  void _onStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _state.removeListener(_onStateChanged);
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_state.isLoggedIn || _state.currentRole != UserRole.doctor) {
+      return const WelcomeScreen();
+    }
     final tabs = [
       DoctorDashboardTab(
         state: _state,
@@ -79,29 +89,6 @@ class _DoctorMainScreenState extends State<DoctorMainScreen> {
           ],
         ),
         actions: [
-          // Switch to Patient View button
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => const PatientMainScreen(),
-                ),
-              );
-            },
-            icon: const Icon(
-              Icons.swap_horiz_rounded,
-              size: 18,
-              color: AppTheme.primaryBlue,
-            ),
-            label: const Text(
-              'Vista Paciente',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.primaryBlue,
-              ),
-            ),
-          ),
           IconButton(
             icon: const Icon(
               Icons.logout_rounded,
@@ -110,6 +97,7 @@ class _DoctorMainScreenState extends State<DoctorMainScreen> {
             ),
             tooltip: 'Cerrar sesión',
             onPressed: () {
+              _state.logout();
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
                   builder: (context) => const WelcomeScreen(),

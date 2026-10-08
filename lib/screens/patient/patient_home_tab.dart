@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../../widgets/appointment_card.dart';
 
 class PatientHomeTab extends StatelessWidget {
   final AppState state;
@@ -14,6 +15,8 @@ class PatientHomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final upcoming = state.upcomingPatientAppointments;
+    final next = upcoming.isEmpty ? null : upcoming.first;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFD),
       body: SafeArea(
@@ -105,7 +108,7 @@ class PatientHomeTab extends StatelessWidget {
                             letterSpacing: 1.2,
                           ),
                         ),
-                        Container(
+                        if (next != null) Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
                             vertical: 4,
@@ -114,9 +117,9 @@ class PatientHomeTab extends StatelessWidget {
                             color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
-                            'Confirmada',
-                            style: TextStyle(
+                          child: Text(
+                            next.status.label,
+                            style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
@@ -126,18 +129,18 @@ class PatientHomeTab extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Dra. Sofía Vega',
-                      style: TextStyle(
+                    Text(
+                      next?.doctorName ?? 'Sin citas próximas',
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Ortodoncia • Revisión mensual',
-                      style: TextStyle(
+                    Text(
+                      next?.specialty ?? 'Agenda una cita para comenzar',
+                      style: const TextStyle(
                         fontSize: 13,
                         color: Colors.white70,
                         fontWeight: FontWeight.w500,
@@ -147,24 +150,25 @@ class PatientHomeTab extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
+                        Expanded(child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.calendar_today_rounded,
                               size: 15,
                               color: Colors.white70,
                             ),
-                            SizedBox(width: 6),
-                            Text(
-                              '18 Octubre, 10:00 AM',
-                              style: TextStyle(
+                            const SizedBox(width: 6),
+                            Flexible(child: Text(
+                              next == null ? 'Sin fecha' : '${next.date.day}/${next.date.month}/${next.date.year} · ${next.time}',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
                               ),
-                            ),
+                            )),
                           ],
-                        ),
+                        )),
                         ElevatedButton(
                           onPressed: () => onTabChange(1), // Go to Mis Citas
                           style: ElevatedButton.styleFrom(
@@ -193,6 +197,21 @@ class PatientHomeTab extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
+
+              const Text(
+                'Próximas citas',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary),
+              ),
+              const SizedBox(height: 12),
+              if (upcoming.isEmpty)
+                const Text('Todavía no tienes citas programadas.')
+              else
+                ...upcoming.take(3).map((appointment) => AppointmentCard(
+                  appointment: appointment,
+                  isDoctorView: false,
+                )),
+              const SizedBox(height: 12),
 
               // Services 2x2 Grid matching Figma Screen 8
               Row(

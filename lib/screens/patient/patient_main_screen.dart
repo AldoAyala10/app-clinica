@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
-import '../doctor/doctor_main_screen.dart';
+import '../welcome_screen.dart';
 import 'patient_home_tab.dart';
 import 'patient_appointments_tab.dart';
 import 'book_appointment_tab.dart';
@@ -21,15 +21,25 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
   @override
   void initState() {
     super.initState();
-    _state = AppState();
-    _state.setRole(UserRole.patient);
-    _state.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _state = AppState.session;
+    _state.addListener(_onStateChanged);
+  }
+
+  void _onStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _state.removeListener(_onStateChanged);
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_state.isLoggedIn || _state.currentRole != UserRole.patient) {
+      return const WelcomeScreen();
+    }
     final tabs = [
       PatientHomeTab(
         state: _state,
@@ -93,29 +103,6 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
           ],
         ),
         actions: [
-          // Switch to Doctor View button
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => const DoctorMainScreen(),
-                ),
-              );
-            },
-            icon: const Icon(
-              Icons.medical_services_outlined,
-              size: 18,
-              color: AppTheme.primaryBlue,
-            ),
-            label: const Text(
-              'Vista Doctor',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.primaryBlue,
-              ),
-            ),
-          ),
           const SizedBox(width: 12),
         ],
       ),

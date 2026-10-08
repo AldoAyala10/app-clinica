@@ -21,7 +21,7 @@ class BookAppointmentTab extends StatefulWidget {
 class _BookAppointmentTabState extends State<BookAppointmentTab> {
   int _selectedTreatmentIndex = 0;
   int _selectedDoctorIndex = 1; // Dra. Sofía Vega selected
-  int _selectedDayIndex = 3; // 17 Octubre selected
+  int _selectedDayIndex = 3;
   int _selectedTimeIndex = 1; // 10:30 AM selected
 
   final List<String> _treatments = [
@@ -32,15 +32,10 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
     'Blanqueamiento',
   ];
 
-  final List<Map<String, String>> _calendarDays = [
-    {'day': 'Lun', 'date': '14'},
-    {'day': 'Mar', 'date': '15'},
-    {'day': 'Mié', 'date': '16'},
-    {'day': 'Jue', 'date': '17'},
-    {'day': 'Vie', 'date': '18'},
-    {'day': 'Sáb', 'date': '19'},
-    {'day': 'Dom', 'date': '20'},
-  ];
+  late final List<DateTime> _calendarDates = List.generate(
+    7, (index) => DateTime.now().add(Duration(days: index + 1)),
+  );
+  static const _weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
   final List<String> _timeSlots = [
     '09:00 AM',
@@ -55,13 +50,13 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
     final doctor = widget.state.doctors[_selectedDoctorIndex];
     final treatment = _treatments[_selectedTreatmentIndex];
     final time = _timeSlots[_selectedTimeIndex];
-    final day = _calendarDays[_selectedDayIndex]['date'];
+    final date = _calendarDates[_selectedDayIndex];
 
     widget.state.addAppointment(
       patientName: widget.state.patientName,
       doctorName: doctor.name,
       specialty: treatment,
-      date: DateTime(2024, 10, int.tryParse(day ?? '17') ?? 17),
+      date: date,
       time: time,
     );
 
@@ -99,7 +94,7 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Tu cita con ${doctor.name} para $treatment el $day de Octubre a las $time ha sido confirmada.',
+                'Tu cita con ${doctor.name} para $treatment el ${date.day}/${date.month}/${date.year} a las $time ha sido confirmada.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 13,
@@ -272,7 +267,7 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
                     ),
                   ),
                   Text(
-                    'Octubre 2024',
+                    'Próximos 7 días',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -286,9 +281,9 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
                 height: 80,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: _calendarDays.length,
+                  itemCount: _calendarDates.length,
                   itemBuilder: (context, index) {
-                    final item = _calendarDays[index];
+                    final date = _calendarDates[index];
                     final isSelected = index == _selectedDayIndex;
                     return GestureDetector(
                       onTap: () {
@@ -324,7 +319,7 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              item['day']!,
+                              _weekdays[date.weekday - 1],
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
@@ -335,7 +330,7 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              item['date']!,
+                              '${date.day}',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w800,

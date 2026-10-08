@@ -1,17 +1,27 @@
-# app_clinica
+# Clínica Dental — Sprint 2
 
-A new Flutter project.
+Aplicación Flutter de demostración con navegación por roles y citas locales.
 
-## Getting Started
+## Acceso de prueba
 
-This project is a starting point for a Flutter application.
+| Rol | Correo | Contraseña |
+| --- | --- | --- |
+| Doctor / administrador | `admin@test.com` | `admin123` |
+| Paciente | `paciente@test.com` | `paciente123` |
 
-A few resources to get you started if this is your first Flutter project:
+La autenticación y las citas son datos locales para el Sprint 2. No existe un
+backend ni persistencia; registrar una cuenta solo abre una sesión temporal.
+Tras cerrar sesión se elimina el historial de navegación del dashboard.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Ejecutar y comprobar
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```sh
+flutter pub get
+flutter test
+flutter run
+```
+
+El flujo de GitHub Actions ejecuta `flutter test` antes de compilar el APK de
+depuración en push y pull request hacia `main`. Los archivos de la carpeta
+`Sprint2_LoginApp_patch` son una copia histórica: la app y el pipeline se
+ejecutan desde la raíz de este repositorio.
