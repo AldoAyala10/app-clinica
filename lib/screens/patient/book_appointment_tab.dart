@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../../models/appointment.dart';
 import '../../models/doctor.dart';
 import '../../widgets/custom_button.dart';
 
@@ -21,8 +22,11 @@ class BookAppointmentTab extends StatefulWidget {
 class _BookAppointmentTabState extends State<BookAppointmentTab> {
   int _selectedTreatmentIndex = 0;
   int _selectedDoctorIndex = 1; // Dra. Sofía Vega selected
-  int _selectedDayIndex = 3;
   int _selectedTimeIndex = 1; // 10:30 AM selected
+  late DateTime _selectedDate;
+  final TextEditingController _reasonController = TextEditingController();
+  String? _reasonError;
+  bool _isSubmitting = false;
 
   final List<String> _treatments = [
     'Limpieza',
@@ -33,7 +37,7 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
   ];
 
   late final List<DateTime> _calendarDates = List.generate(
-    7, (index) => DateTime.now().add(Duration(days: index + 1)),
+    7, (index) => DateUtils.dateOnly(DateTime.now()).add(Duration(days: index + 1)),
   );
   static const _weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
@@ -46,21 +50,92 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
     '06:00 PM',
   ];
 
-  void _handleConfirmBooking() {
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = _calendarDates[3];
+  }
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final firstDate = today.add(const Duration(days: 1));
+    final lastDate = today.add(const Duration(days: 180));
+    final initialDate = _selectedDate.isAfter(lastDate) ? lastDate : _selectedDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: 'Selecciona la fecha de tu cita',
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
+  Future<void> _handleConfirmBooking() async {
+    if (_isSubmitting) return;
+    final reason = _reasonController.text.trim();
+    if (reason.length < 5) {
+      setState(() => _reasonError = 'Escribe al menos 5 caracteres para el motivo.');
+      return;
+    }
+
     final doctor = widget.state.doctors[_selectedDoctorIndex];
     final treatment = _treatments[_selectedTreatmentIndex];
     final time = _timeSlots[_selectedTimeIndex];
-    final date = _calendarDates[_selectedDayIndex];
+    final date = _selectedDate;
+    final today = DateUtils.dateOnly(DateTime.now());
 
-    widget.state.addAppointment(
-      patientName: widget.state.patientName,
-      doctorName: doctor.name,
-      specialty: treatment,
-      date: date,
-      time: time,
+    if (!date.isAfter(today)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona una fecha futura.')),
+      );
+      return;
+    }
+
+    // Validación local provisional: el backend deberá comprobar el horario
+    // nuevamente antes de crear la cita, para evitar reservas simultáneas.
+    final occupied = widget.state.appointments.any(
+      (appointment) =>
+          appointment.doctorName == doctor.name &&
+          DateUtils.isSameDay(appointment.date, date) &&
+          appointment.time.split(' - ').first == time &&
+          (appointment.status == AppointmentStatus.confirmada ||
+              appointment.status == AppointmentStatus.pendiente),
     );
+    if (occupied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ese horario ya está ocupado para el odontólogo elegido.'),
+        ),
+      );
+      return;
+    }
 
-    showDialog(
+    setState(() => _isSubmitting = true);
+    try {
+      // Solo demostración visual del loading. Reemplazar este Future y el
+      // guardado local por la llamada asíncrona al repositorio real.
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      widget.state.addAppointment(
+        patientName: widget.state.patientName,
+        doctorName: doctor.name,
+        specialty: treatment,
+        date: date,
+        time: time,
+        notes: reason,
+      );
+      _reasonController.clear();
+
+      showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -94,7 +169,7 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Tu cita con ${doctor.name} para $treatment el ${date.day}/${date.month}/${date.year} a las $time ha sido confirmada.',
+                'Tu cita con ${doctor.name} para $treatment el ${date.day}/${date.month}/${date.year} a las $time se registró en modo demostración (solo en memoria).',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 13,
@@ -115,6 +190,15 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
         );
       },
     );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo agendar la cita. Intenta de nuevo.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -266,13 +350,11 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
                       color: AppTheme.textPrimary,
                     ),
                   ),
-                  Text(
-                    'Próximos 7 días',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
-                    ),
+                  TextButton.icon(
+                    key: const Key('book_date_picker'),
+                    onPressed: _isSubmitting ? null : _pickDate,
+                    icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                    label: const Text('Calendario'),
                   ),
                 ],
               ),
@@ -284,11 +366,11 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
                   itemCount: _calendarDates.length,
                   itemBuilder: (context, index) {
                     final date = _calendarDates[index];
-                    final isSelected = index == _selectedDayIndex;
+                    final isSelected = DateUtils.isSameDay(date, _selectedDate);
                     return GestureDetector(
                       onTap: () {
                         setState(() {
-                          _selectedDayIndex = index;
+                          _selectedDate = date;
                         });
                       },
                       child: Container(
@@ -344,6 +426,15 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
                       ),
                     );
                   },
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Fecha seleccionada: ${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 24),
@@ -408,12 +499,60 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
                   );
                 }),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
+
+              // Motivo requerido por la HU-08 (Sprint 3).
+              const Text(
+                'Motivo de la consulta',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                key: const Key('booking_reason_field'),
+                controller: _reasonController,
+                maxLength: 250,
+                minLines: 2,
+                maxLines: 3,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) {
+                  if (_reasonError != null) {
+                    setState(() => _reasonError = null);
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: 'Describe brevemente qué necesitas consultar...',
+                  errorText: _reasonError,
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
 
               // Submit Button matching Figma Screen 10
               CustomButton(
                 text: 'Confirmar Cita',
-                onPressed: _handleConfirmBooking,
+                isLoading: _isSubmitting,
+                onPressed: _isSubmitting ? null : _handleConfirmBooking,
+              ),
+              const SizedBox(height: 8),
+              const Center(
+                child: Text(
+                  'Modo demostración: la cita no se guarda en un servidor.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                ),
               ),
               const SizedBox(height: 20),
             ],

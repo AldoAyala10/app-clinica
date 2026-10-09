@@ -1,21 +1,48 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../../models/appointment.dart';
+import '../../widgets/patient_dashboard_feedback.dart';
+import '../../widgets/patient_appointments_loading.dart';
 import '../../widgets/appointment_card.dart';
 
-class PatientHomeTab extends StatelessWidget {
+class PatientHomeTab extends PatientAppointmentsScreen {
   final AppState state;
   final Function(int) onTabChange;
+  final PatientAppointmentsLoader? appointmentLoader;
 
   const PatientHomeTab({
     super.key,
     required this.state,
     required this.onTabChange,
+    this.appointmentLoader,
   });
 
   @override
+  State<PatientHomeTab> createState() => _PatientHomeTabState();
+}
+
+class _PatientHomeTabState extends State<PatientHomeTab>
+    with PatientAppointmentsLoading<PatientHomeTab> {
+  List<Appointment> get _upcomingAppointments {
+    if (patientStatus != PatientViewStatus.ready) return const [];
+    // Con AppState se leen datos actualizados tras agendar/cancelar una cita.
+    final source = appointmentSource;
+    final today = DateUtils.dateOnly(DateTime.now());
+    final result = source
+        .where((appointment) =>
+            appointment.patientName == widget.state.patientName &&
+            !appointment.date.isBefore(today) &&
+            (appointment.status == AppointmentStatus.confirmada ||
+                appointment.status == AppointmentStatus.pendiente))
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    return result;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final upcoming = state.upcomingPatientAppointments;
+    final upcoming = _upcomingAppointments;
     final next = upcoming.isEmpty ? null : upcoming.first;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFD),
@@ -33,7 +60,7 @@ class PatientHomeTab extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '¡Hola, ${state.patientName.split(" ").first}!',
+                        '¡Hola, ${widget.state.patientName.split(" ").first}!',
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
@@ -71,7 +98,24 @@ class PatientHomeTab extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Blue Next Appointment Card matching Figma Screen 8
+              // Tarjeta principal: estados de carga, error y contenido.
+              if (patientStatus == PatientViewStatus.loading)
+                const PatientDashboardFeedback(
+                  key: Key('patient_home_loading'),
+                  loading: true,
+                  title: 'Cargando tus citas',
+                  message: 'Estamos preparando la información de tus citas.',
+                )
+              else if (patientStatus == PatientViewStatus.error)
+                PatientDashboardFeedback(
+                  key: const Key('patient_home_error'),
+                  icon: Icons.cloud_off_rounded,
+                  title: 'No se pudieron cargar tus citas',
+                  message: 'Ocurrió un error al obtener la información. Vuelve a intentarlo.',
+                  actionText: 'Reintentar',
+                  onAction: refreshAppointments,
+                )
+              else
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(22),
@@ -170,7 +214,7 @@ class PatientHomeTab extends StatelessWidget {
                           ],
                         )),
                         ElevatedButton(
-                          onPressed: () => onTabChange(1), // Go to Mis Citas
+                          onPressed: () => widget.onTabChange(next == null ? 2 : 1),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: AppTheme.primaryBlue,
@@ -183,8 +227,8 @@ class PatientHomeTab extends StatelessWidget {
                               vertical: 10,
                             ),
                           ),
-                          child: const Text(
-                            'Ver Cita',
+                          child: Text(
+                            next == null ? 'Agendar' : 'Ver Cita',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -204,9 +248,16 @@ class PatientHomeTab extends StatelessWidget {
                     color: AppTheme.textPrimary),
               ),
               const SizedBox(height: 12),
-              if (upcoming.isEmpty)
-                const Text('Todavía no tienes citas programadas.')
-              else
+              if (patientStatus == PatientViewStatus.ready && upcoming.isEmpty)
+                PatientDashboardFeedback(
+                  key: const Key('patient_home_empty'),
+                  icon: Icons.event_available_rounded,
+                  title: 'Todavía no tienes citas programadas',
+                  message: 'Elige un servicio y agenda tu primera consulta.',
+                  actionText: 'Agendar cita',
+                  onAction: () => widget.onTabChange(2),
+                )
+              else if (patientStatus == PatientViewStatus.ready)
                 ...upcoming.take(3).map((appointment) => AppointmentCard(
                   appointment: appointment,
                   isDoctorView: false,
@@ -226,7 +277,7 @@ class PatientHomeTab extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => onTabChange(2), // Go to Agendar
+                    onPressed: () => widget.onTabChange(2), // Go to Agendar
                     child: const Text(
                       'Agendar',
                       style: TextStyle(
@@ -248,7 +299,7 @@ class PatientHomeTab extends StatelessWidget {
                       icon: Icons.cleaning_services_rounded,
                       color: const Color(0xFF0066FF),
                       bgColor: const Color(0xFFE8F1FF),
-                      onTap: () => onTabChange(2),
+                      onTap: () => widget.onTabChange(2),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -258,7 +309,7 @@ class PatientHomeTab extends StatelessWidget {
                       icon: Icons.sentiment_very_satisfied_rounded,
                       color: const Color(0xFF10B981),
                       bgColor: const Color(0xFFE6F9F0),
-                      onTap: () => onTabChange(2),
+                      onTap: () => widget.onTabChange(2),
                     ),
                   ),
                 ],
@@ -272,7 +323,7 @@ class PatientHomeTab extends StatelessWidget {
                       icon: Icons.health_and_safety_rounded,
                       color: const Color(0xFFF59E0B),
                       bgColor: const Color(0xFFFEF3C7),
-                      onTap: () => onTabChange(2),
+                      onTap: () => widget.onTabChange(2),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -282,7 +333,7 @@ class PatientHomeTab extends StatelessWidget {
                       icon: Icons.auto_awesome_rounded,
                       color: const Color(0xFF8B5CF6),
                       bgColor: const Color(0xFFF3E8FF),
-                      onTap: () => onTabChange(2),
+                      onTap: () => widget.onTabChange(2),
                     ),
                   ),
                 ],

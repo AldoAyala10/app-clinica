@@ -328,6 +328,7 @@ class AppState extends ChangeNotifier {
     required String specialty,
     required DateTime date,
     required String time,
+    String notes = '',
   }) {
     _appointments.insert(
       0,
@@ -338,6 +339,7 @@ class AppState extends ChangeNotifier {
         specialty: specialty,
         date: date,
         time: time,
+        notes: notes,
         status: AppointmentStatus.confirmada,
         avatarColor: const Color(0xFF0066FF),
       ),
