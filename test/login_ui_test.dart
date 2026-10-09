@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:app_clinica/screens/login_screen.dart';
 import 'package:app_clinica/screens/doctor/doctor_main_screen.dart';
 import 'package:app_clinica/state/app_state.dart';
 import 'package:app_clinica/widgets/custom_button.dart';
 
 void main() {
+  setUpAll(() => initializeDateFormatting('es'));
   setUp(() => AppState.session.logout());
   tearDown(() => AppState.session.logout());
 
