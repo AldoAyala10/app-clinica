@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#091425">
+<title>CI Sentinel · App Clínica</title>
+<style>
+:root{--bg:#07111f;--surface:#111e30;--surface2:#17263a;--line:#2a3c50;--ink:#eff6ff;--muted:#94a8c0;--mint:#39e2b0;--blue:#4d9dff;--amber:#ffc965;--red:#ff697b;--radius:22px;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 5%,#12365a 0,transparent 33%),radial-gradient(circle at 90% 8%,#153a40 0,transparent 35%),var(--bg);color:var(--ink);letter-spacing:-.01em}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}.app{max-width:1290px;margin:0 auto;padding:30px 34px 48px}.top{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:30px}.brand{display:flex;align-items:center;gap:14px}.logo{width:49px;height:49px;display:grid;place-items:center;border:1px solid #3785bb;background:linear-gradient(135deg,#133a6a,#14675c);box-shadow:0 0 26px #176fa044;border-radius:15px;font-size:27px}.brandname{font-size:18px;font-weight:850;letter-spacing:-.04em}.brandsub{font-size:12px;color:var(--muted);margin-top:3px}.top-right{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.chip{border:1px solid #36516b;border-radius:99px;padding:8px 12px;font-size:12px;color:#c5d5e5;background:#15263b}.chip .dot{display:inline-block;width:7px;height:7px;background:var(--mint);border-radius:50%;margin-right:7px;box-shadow:0 0 9px var(--mint)}.chip.warn .dot{background:var(--amber);box-shadow:none}.top-note{color:var(--muted);font-size:12px}
+.hero{display:grid;grid-template-columns:1fr 345px;gap:20px}.hero-main{padding:36px 38px 30px;background:linear-gradient(130deg,#16334d,#12223a 54%,#153743);border:1px solid #31526b;border-radius:var(--radius);position:relative;overflow:hidden}.hero-main:after{content:"";position:absolute;right:-115px;top:-170px;width:380px;height:380px;border:1px solid #4d9dff25;border-radius:50%;box-shadow:0 0 0 55px #4d9dff0d,0 0 0 110px #4d9dff08;pointer-events:none}.eyebrow{text-transform:uppercase;letter-spacing:.17em;color:#75d9cb;font-weight:800;font-size:11px}.hero h1{font-size:clamp(30px,3.8vw,51px);font-weight:900;letter-spacing:-.062em;line-height:1.06;margin:16px 0}.hero-desc{font-size:15px;line-height:1.65;color:#b9cfe1;max-width:570px;margin:0 0 24px}.hero-actions{display:flex;gap:10px;flex-wrap:wrap;position:relative;z-index:1}.btn{border-radius:12px;border:1px solid #416080;padding:12px 17px;color:#eff6ff;background:#1a3148;font-size:13px;font-weight:780;cursor:pointer;transition:transform .18s,border-color .18s,background .18s;font-family:inherit}.btn:hover{transform:translateY(-2px);border-color:#75beff;background:#23425e}.btn.primary{background:var(--mint);border-color:var(--mint);color:#032b28;box-shadow:0 5px 25px #24dda52a}.btn.primary:hover{background:#82f0d0}.btn:disabled{opacity:.6;cursor:wait;transform:none}.btn .symbol{margin-right:6px}.replay-note{margin-top:16px;color:#a5bbce;font-size:12px;min-height:19px}.metrics{background:linear-gradient(150deg,#172a40,#112030);border:1px solid #30445b;border-radius:var(--radius);padding:25px}.metric-head{color:#b4c9dc;font-weight:750;font-size:13px;display:flex;justify-content:space-between;align-items:center}.metric-head small{color:var(--mint);font-size:11px}.donut{width:156px;height:156px;display:grid;place-items:center;margin:20px auto 15px;border-radius:50%;background:conic-gradient(var(--mint) 100%,#2b4052 0);box-shadow:0 0 35px #1ec49d1b}.donut-inner{width:127px;height:127px;border-radius:50%;background:#13263a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}.donut-number{font-size:40px;font-weight:900;letter-spacing:-.07em}.donut-sub{color:var(--muted);font-size:11px}.metric-status{text-align:center;font-weight:800;font-size:19px;margin-top:7px}.metric-desc{color:var(--muted);text-align:center;font-size:12px;margin-top:7px;line-height:1.4}.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}.mini{background:#0c1b2a;border:1px solid #2a3e52;border-radius:12px;padding:12px 13px}.mini-label{color:var(--muted);font-size:11px}.mini-value{font-size:18px;font-weight:850;margin-top:7px}.sectionbar{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-top:30px;margin-bottom:14px}.sectionbar h2{font-size:19px;letter-spacing:-.04em;margin:0}.sectionbar p{color:var(--muted);font-size:12px;margin:5px 0 0}.sectionright{color:#8ba9c1;font-size:12px}.pipeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.stage{border:1px solid #2c435b;background:linear-gradient(150deg,#17273b,#111d2d);border-radius:17px;padding:20px 17px 18px;position:relative;min-height:190px;transition:.3s}.stage.active{border-color:var(--blue);box-shadow:0 0 0 1px #4d9dff55,0 0 35px #4d9dff17}.stage.done{border-color:#2c5b57}.stage.bad{border-color:#a8485e}.stage .count{font-weight:800;font-size:11px;letter-spacing:.09em;color:#8fa8c1}.stage .statussymbol{font-size:23px;position:absolute;right:14px;top:13px}.stage .stageico{font-size:26px;margin-top:20px;line-height:1}.stage h3{margin:14px 0 5px;font-size:15px;letter-spacing:-.035em}.stage .stepdesc{font-size:11px;line-height:1.5;color:#9db2c8;min-height:34px}.stage .stagefoot{font-size:11px;margin-top:13px;font-weight:800;color:#94a8c0}.stage.done .stagefoot{color:var(--mint)}.stage.active .stagefoot{color:var(--blue)}.stage.bad .stagefoot{color:var(--red)}.stage .bar{height:3px;background:#304052;border-radius:6px;margin-top:12px;overflow:hidden}.stage .bar i{display:block;height:100%;width:0;background:var(--mint);transition:width .45s}.stage.done .bar i{width:100%}.stage.active .bar i{background:var(--blue);width:65%;animation:pulse 1s linear infinite alternate}@keyframes pulse{from{opacity:.45}to{opacity:1}}
+.details{display:grid;grid-template-columns:1.35fr .8fr;gap:16px;margin-top:17px}.panel{background:linear-gradient(165deg,#142338,#101d2c);border:1px solid #2b4055;border-radius:var(--radius);padding:24px 25px}.panel-title{display:flex;align-items:center;justify-content:space-between;gap:15px}.panel-title h2{font-size:17px;letter-spacing:-.035em;margin:0}.smallcaps{font-size:11px;color:#8fa7bf}.log{margin-top:18px;max-height:256px;overflow:auto;padding-right:5px}.logrow{display:grid;grid-template-columns:27px 1fr 75px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid #2a3b4f}.logrow:first-child{border-top:0}.logdot{display:grid;place-items:center;width:25px;height:25px;border-radius:7px;background:#294239;color:var(--mint);font-weight:900;font-size:13px}.logdot.run{background:#213c66;color:var(--blue)}.logdot.wait{background:#2b3948;color:#889fb3}.logdot.error{background:#4b2434;color:var(--red)}.logname{font-size:12px;font-weight:750}.loghint{font-size:11px;color:#839db5;margin-top:3px}.logtime{color:#96acc1;font-size:11px;text-align:right;font-variant-numeric:tabular-nums}.agent-banner{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--mint);font-weight:850;letter-spacing:.1em;text-transform:uppercase}.agent-dot{width:8px;height:8px;border-radius:50%;background:var(--mint);box-shadow:0 0 15px var(--mint)}.agent-text{font-size:15px;line-height:1.7;margin:20px 0 10px;color:#d9e8f7}.agent-reason{border-left:3px solid var(--mint);padding:11px 13px;background:#0e2430;border-radius:0 10px 10px 0;font-size:12px;color:#a7c7d2;line-height:1.7}.source-info{margin-top:18px;padding-top:16px;border-top:1px solid #2b4055;font-size:12px;color:#9cb3c7;line-height:1.8}.source-info strong{color:#e4f2fc}.footer{font-size:11px;color:#7892aa;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:21px}.warning{color:var(--amber)}.error{color:var(--red)}.success{color:var(--mint)}.monow{font-variant-numeric:tabular-nums}.hidden{display:none}
+@media(max-width:970px){.hero{grid-template-columns:1fr}.pipeline{grid-template-columns:repeat(3,1fr)}.details{grid-template-columns:1fr}.metrics{display:grid;grid-template-columns:1fr 180px;align-items:center}.donut{grid-column:2;grid-row:1 / span 3}.metric-status,.metric-desc{text-align:left}.mini-grid{grid-column:1/-1}}
+@media(max-width:630px){.app{padding:20px 15px}.top{align-items:flex-start;flex-direction:column}.top-right{justify-content:flex-start}.hero-main{padding:26px 22px}.metrics{display:block}.donut{margin:18px auto}.metric-status,.metric-desc{text-align:center}.pipeline{grid-template-columns:repeat(2,minmax(0,1fr))}.stage{min-height:160px;padding:14px}.stage .stepdesc{min-height:50px}.sectionright{display:none}.panel{padding:20px 17px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main class="app">
+<header class="top">
+  <div class="brand"><div class="logo" aria-hidden="true">✚</div><div><div class="brandname">CI SENTINEL <span style="color:#61ddbc">/ Clínica Dental</span></div><div class="brandsub">Agente de supervisión inteligente · GitHub Actions</div></div></div>
+  <div class="top-right"><span class="chip" id="connectBadge"><span class="dot"></span><span id="connectionLabel">Conectando con GitHub...</span></span><span class="chip">Repositorio público · Sprint 2</span></div>
+</header>
+<section class="hero">
+  <article class="hero-main">
+    <div class="eyebrow">Panel inteligente del pipeline · CI / CD</div>
+    <h1>Del código al APK.<br><span style="color:#64e0c0">Cada paso, visible.</span></h1>
+    <p class="hero-desc">Este agente consulta GitHub Actions, interpreta cada etapa del pipeline de Flutter y explica automáticamente si la ejecución avanzó, se detuvo o terminó correctamente.</p>
+    <div class="hero-actions">
+      <button class="btn primary" id="replayBtn"><span class="symbol">▶</span>Reproducir progreso real</button>
+      <button class="btn" id="refreshBtn"><span class="symbol">↻</span>Actualizar desde GitHub</button>
+      <a class="btn" id="openRun" href="https://github.com/AldoAyala10/app-clinica/actions/runs/37563171679" target="_blank" rel="noopener">↗ Ver evidencia original</a>
+      <button class="btn" id="fullBtn">⛶ Pantalla completa</button>
+    </div>
+    <div class="replay-note" id="modeDescription" aria-live="polite">Cargando la última ejecución. Puedes reproducir los pasos reales registrados para el video.</div>
+  </article>
+  <aside class="metrics">
+    <div class="metric-head"><span>PROGRESO DEL PIPELINE</span><small id="jobTag">Flutter CI</small></div>
+    <div class="donut" id="donut"><div class="donut-inner"><div class="donut-number monow" id="progressNumber">100%</div><div class="donut-sub" id="stepsFraction">5 de 5 etapas</div></div></div>
+    <div class="metric-status success" id="summaryStatus">Ejecución aprobada</div>
+    <div class="metric-desc" id="summaryDesc">Pruebas y compilación completas</div>
+    <div class="mini-grid"><div class="mini"><div class="mini-label">Ejecución</div><div class="mini-value" id="runNumber">#1</div></div><div class="mini"><div class="mini-label">Duración registrada</div><div class="mini-value" id="runDuration">4m 54s</div></div></div>
+  </aside>
+</section>
+<div class="sectionbar"><div><h2>Flujo de integración continua</h2><p>Etapas extraídas del workflow de Flutter del proyecto</p></div><div class="sectionright" id="updateLabel">Último resultado verificado · GitHub Actions</div></div>
+<section class="pipeline" id="pipeline" aria-label="Etapas del pipeline"></section>
+<section class="details">
+ <article class="panel"><div class="panel-title"><h2>Registro de actividad</h2><span class="smallcaps" id="jobName">Job · test-and-build</span></div><div class="log" id="activityLog" aria-live="polite"></div></article>
+ <aside class="panel"><div class="agent-banner"><span class="agent-dot"></span>Diagnóstico automático</div><div class="agent-text" id="agentText">Analizando ejecución del pipeline...</div><div class="agent-reason" id="agentReason">El motor basado en reglas interpreta resultados reales de GitHub Actions.</div><div class="source-info"><div><strong>Proyecto:</strong> AldoAyala10/app-clinica</div><div><strong>Rama:</strong> <span id="branchLabel">feature/sprint-2-app-clinica</span></div><div><strong>Commit:</strong> <span id="commitLabel">c7f79bd</span></div><div><strong>PR:</strong> <a href="https://github.com/AldoAyala10/app-clinica/pull/1" target="_blank" rel="noopener">#1 · Sprint 2</a></div></div></aside>
+</section>
+<footer class="footer"><span>CI Sentinel v1.0 · Proyecto académico · Agente basado en reglas + GitHub Actions API</span><span id="sourceFooter">Fuente: ejecución auténtica #1 · Reproducción identificada como histórica</span></footer>
+</main>
+<script>
+'use strict';
+const REPO='AldoAyala10/app-clinica';
+const API=`https://api.github.com/repos/${REPO}`;
+const RUN_BASE=`https://github.com/${REPO}/actions/runs/`;
+const STEPS=[
+ {id:'checkout',title:'Obtener código',desc:'GitHub descarga el repositorio',icon:'⌘',match:/actions\/checkout/i},
+ {id:'flutter',title:'Configurar Flutter',desc:'Instalación del SDK estable',icon:'◆',match:/subosito\/flutter-action/i},
+ {id:'deps',title:'Dependencias',desc:'flutter pub get',icon:'↓',match:/flutter pub get/i},
+ {id:'tests',title:'Pruebas automáticas',desc:'flutter test · unidad e interfaz',icon:'✓',match:/Pruebas unitarias|flutter test/i},
+ {id:'apk',title:'Compilar APK',desc:'flutter build apk --debug',icon:'▣',match:/Compilación Android|flutter build apk/i}
+];
+// Copia verificable de la ejecución pública #1 (7 oct 2026). Sólo se usa si no hay red.
+const ARCHIVE={
+ id:37563171679,run_number:1,name:'Flutter CI',status:'completed',conclusion:'success',
+ head_branch:'feature/sprint-2-app-clinica',head_sha:'c7f79bdf76170941cb49e2b276f88b957e0cbba2',
+ created_at:'2026-10-07T02:41:23Z',updated_at:'2026-10-07T02:46:23Z',html_url:RUN_BASE+'37563171679',
+ jobs:[{id:112604838067,name:'test-and-build',status:'completed',conclusion:'success',steps:[
+  {name:'Set up job',status:'completed',conclusion:'success',started_at:'2026-10-07T02:41:26Z',completed_at:'2026-10-07T02:41:28Z'},
+  {name:'Run actions/checkout@v4',status:'completed',conclusion:'success',started_at:'2026-10-07T02:41:28Z',completed_at:'2026-10-07T02:41:29Z'},
+  {name:'Run subosito/flutter-action@v2',status:'completed',conclusion:'success',started_at:'2026-10-07T02:41:29Z',completed_at:'2026-10-07T02:42:21Z'},
+  {name:'Run flutter pub get',status:'completed',conclusion:'success',started_at:'2026-10-07T02:42:21Z',completed_at:'2026-10-07T02:42:28Z'},
+  {name:'Pruebas unitarias y de interfaz',status:'completed',conclusion:'success',started_at:'2026-10-07T02:42:28Z',completed_at:'2026-10-07T02:42:43Z'},
+  {name:'Compilación Android',status:'completed',conclusion:'success',started_at:'2026-10-07T02:42:43Z',completed_at:'2026-10-07T02:45:54Z'},
+  {name:'Post Run subosito/flutter-action@v2',status:'completed',conclusion:'success',started_at:'2026-10-07T02:45:54Z',completed_at:'2026-10-07T02:46:19Z'},
+  {name:'Post Run actions/checkout@v4',status:'completed',conclusion:'success',started_at:'2026-10-07T02:46:19Z',completed_at:'2026-10-07T02:46:19Z'},
+  {name:'Complete job',status:'completed',conclusion:'success',started_at:'2026-10-07T02:46:19Z',completed_at:'2026-10-07T02:46:20Z'}
+ ]}]
+};
+let current=ARCHIVE,source='archive',replayIndex=null,replayTimer=null,loading=false,updatedAt=null;
+const $=id=>document.getElementById(id);
+const fmtDuration=(ms)=>{if(!Number.isFinite(ms)||ms<0)return '—';const sec=Math.round(ms/1000);return sec>=60?`${Math.floor(sec/60)}m ${sec%60}s`:`${sec}s`};
+const diffTime=(a,b)=>a&&b?fmtDuration(new Date(b)-new Date(a)):'—';
+function mapping(){
+ let steps=(current.jobs||[]).flatMap(j=>j.steps||[]);
+ return STEPS.map(stage=>({ ...stage, step:steps.find(s=>stage.match.test(s.name))||null }));
+}
+function classify(stage){
+ const s=stage.step;
+ if(!s)return 'wait';
+ if(replayIndex!==null){
+   const idx=STEPS.findIndex(q=>q.id===stage.id);
+   if(idx<replayIndex)return s.conclusion==='success'?'done':s.conclusion==='skipped'?'skip':'bad';
+   if(idx===replayIndex)return 'active';
+   return 'wait';
+ }
+ if(s.status==='in_progress')return 'active';
+ if(s.status==='completed')return s.conclusion==='success'?'done':s.conclusion==='skipped'?'skip':'bad';
+ return 'wait';
+}
+const LABELS={done:'Completado',active:'En ejecución',wait:'Pendiente',bad:'Error detectado',skip:'Omitido'};
+function make(tag,cls,text){let el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el}
+function draw(){
+ let mapped=mapping(),st=mapped.map(classify),complete=st.filter(x=>x==='done').length;
+ let problem=st.indexOf('bad'),active=st.indexOf('active');
+ let pct=Math.round(100*complete/STEPS.length);
+ let pipeline=$('pipeline');pipeline.replaceChildren();
+ mapped.forEach((s,i)=>{
+  let state=st[i];const node=make('article','stage '+state);
+  node.appendChild(make('div','count',`ETAPA ${String(i+1).padStart(2,'0')} / 05`));
+  node.appendChild(make('div','statussymbol',state==='done'?'●':state==='bad'?'✕':state==='active'?'◉':'○'));
+  node.appendChild(make('div','stageico',s.icon));node.appendChild(make('h3','',s.title));node.appendChild(make('div','stepdesc',s.desc));
+  node.appendChild(make('div','stagefoot',`${LABELS[state]}${s.step?.completed_at&&state==='done'?' · '+diffTime(s.step.started_at,s.step.completed_at):''}`));
+  let bar=make('div','bar');bar.appendChild(make('i'));node.appendChild(bar);pipeline.appendChild(node);
+ });
+ $('progressNumber').textContent=pct+'%';$('stepsFraction').textContent=`${complete} de 5 etapas`;
+ $('donut').style.background=`conic-gradient(${problem>=0?'var(--red)':'var(--mint)'} ${pct}%,#2b4052 ${pct}%)`;
+ let completed=replayIndex===null&&current.status==='completed';
+ let isSuccess=completed&&current.conclusion==='success';
+ let status=problem>=0?'Ejecución con errores':isSuccess?'Ejecución aprobada':active>=0?'Pipeline en progreso':completed?'Ejecución finalizada':replayIndex!==null?'Reproduciendo':'Esperando ejecución';
+ let cls=problem>=0?'error':isSuccess?'success':active>=0?'warning':'';
+ $('summaryStatus').textContent=status;$('summaryStatus').className='metric-status '+cls;
+ $('summaryDesc').textContent=replayIndex!==null?'Reproducción histórica de pasos registrados':isSuccess?'Pruebas y compilación completadas':problem>=0?'El agente encontró una etapa fallida':'Supervisión de GitHub Actions';
+ $('runNumber').textContent='#'+current.run_number;
+ $('runDuration').textContent=diffTime(current.jobs?.[0]?.steps?.[0]?.started_at,current.jobs?.[0]?.steps?.at(-1)?.completed_at);
+ $('jobName').textContent='Job · '+(current.jobs?.[0]?.name||'test-and-build');
+ $('branchLabel').textContent=current.head_branch||'—';$('commitLabel').textContent=(current.head_sha||'—').slice(0,8);
+ $('openRun').href=current.html_url||RUN_BASE+current.id;
+ const log=$('activityLog');log.replaceChildren();
+ mapped.forEach((s,i)=>{
+  let state=st[i];let row=make('div','logrow');let sym=make('div','logdot '+(state==='active'?'run':state==='bad'?'error':state==='wait'?'wait':''),state==='done'?'✓':state==='bad'?'!':state==='active'?'↻':'·');
+  let mid=make('div');mid.appendChild(make('div','logname',s.step?.name||s.title));mid.appendChild(make('div','loghint',LABELS[state]));
+  row.append(sym,mid,make('div','logtime',s.step?.started_at&&state==='done'?diffTime(s.step.started_at,s.step.completed_at):'—'));log.appendChild(row);
+ });
+ let diagnosis,reason;
+ if(problem>=0){diagnosis=`Atención: la etapa «${mapped[problem].title}» falló. El pipeline necesita una corrección antes de integrarse a main.`;reason=problem===3?'Revisa los resultados de flutter test y corrige los tests o la lógica afectada.':problem===4?'Revisa los errores de flutter build apk --debug, dependencias o configuración Android.':`Revisa el log de «${mapped[problem].title}» en GitHub Actions antes de volver a ejecutar.`;}
+ else if(active>=0){diagnosis=`Analizando etapa ${active+1}/5: «${mapped[active].title}». Las etapas anteriores se completaron correctamente.`;reason='El agente vigila los cambios de estado. La próxima etapa avanzará cuando GitHub Actions informe que terminó la actual.';}
+ else if(replayIndex!==null){diagnosis='Reproducción histórica finalizada. Todos los pasos registrados en la ejecución original terminaron correctamente.';reason='Los estados mostrados durante la animación se reconstruyen a partir de eventos reales, pero esta animación no es una ejecución nueva.';}
+ else if(isSuccess){diagnosis='El pipeline está saludable: código descargado, Flutter listo, dependencias resueltas, pruebas aprobadas y APK compilado.';reason='Recomendación: documentar la ejecución exitosa, adjuntar evidencia y revisar el Pull Request antes del merge.';}
+ else if(completed){diagnosis=`Ejecución terminada con resultado «${current.conclusion||'sin dato'}».`;reason='Consulta la ejecución original para identificar cancelaciones u otras condiciones de finalización.';}
+ else{diagnosis='El agente está esperando que GitHub Actions ejecute los pasos pendientes.';reason='El pipeline se actualizará cuando GitHub publique nuevos datos de esta ejecución.';}
+ $('agentText').textContent=diagnosis;$('agentReason').textContent=reason;
+ if(replayIndex!==null){$('modeDescription').textContent='MODO REPRODUCCIÓN · Animación de los pasos reales de la ejecución #'+current.run_number+'. No es una ejecución nueva.';$('sourceFooter').textContent='Modo reproducción histórica · Eventos de GitHub Actions';}
+ else{$('modeDescription').textContent=source==='live'?'Mostrando datos obtenidos de GitHub Actions. Actualización automática cada 30 segundos.':'Mostrando el último resultado real verificado. La consulta en vivo no está disponible; puedes reproducir su historial.';$('sourceFooter').textContent=source==='live'?'Fuente: API pública de GitHub Actions · Información en vivo':'Fuente: datos históricos verificados · No conectado en vivo';}
+}
+function badge(message,state){$('connectionLabel').textContent=message;$('connectBadge').className='chip'+(state==='warn'?' warn':'');}
+function stopReplay(){if(replayTimer){clearTimeout(replayTimer);replayTimer=null;}replayIndex=null;$('replayBtn').innerHTML='<span class="symbol">▶</span>Reproducir progreso real';}
+async function githubJSON(path){
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),12000);
+ try{const res=await fetch(API+path,{headers:{'Accept':'application/vnd.github+json'},signal:ctrl.signal,cache:'no-store'});
+ if(!res.ok)throw new Error('HTTP '+res.status);
+ return await res.json();}finally{clearTimeout(timer)}
+}
+async function refresh(){
+ if(loading||replayIndex!==null)return;loading=true;$('refreshBtn').disabled=true;badge('Consultando GitHub...', 'warn');
+ try{
+  const runs=await githubJSON('/actions/runs?per_page=12');
+  let candidates=(runs.workflow_runs||[]).filter(r=>r.name==='Flutter CI');
+  if(!candidates.length)throw new Error('No se encontraron ejecuciones Flutter CI');
+  const selected=candidates[0];
+  const jobs=await githubJSON(`/actions/runs/${selected.id}/jobs?per_page=100`);
+  current={...selected,jobs:jobs.jobs||[]};source='live';updatedAt=new Date();
+  badge('Conectado a GitHub');$('updateLabel').textContent='Actualizado: '+updatedAt.toLocaleTimeString('es-MX');
+ }catch(e){source='archive';current=ARCHIVE;badge('Modo histórico verificado','warn');$('updateLabel').textContent='API no disponible · Ejecución #1 verificada';console.warn('Consulta en vivo no disponible:',e.message);}
+ finally{loading=false;$('refreshBtn').disabled=false;draw();}
+}
+function replay(){
+ if(replayTimer)clearTimeout(replayTimer);
+ replayIndex=-1;
+ $('replayBtn').textContent='↻ Reiniciar reproducción';
+ $('refreshBtn').disabled=true;
+ const tick=()=>{
+   if(replayIndex===null)return;
+   replayIndex+=1;
+   draw();
+   if(replayIndex<STEPS.length){replayTimer=setTimeout(tick,replayIndex===0?1400:2050)}
+   else{replayTimer=setTimeout(()=>{stopReplay();$('refreshBtn').disabled=false;draw();},2700)}
+ };
+ tick();
+}
+$('replayBtn').addEventListener('click',replay);
+$('refreshBtn').addEventListener('click',refresh);
+$('fullBtn').addEventListener('click',()=>{if(document.fullscreenElement){document.exitFullscreen?.()}else{document.documentElement.requestFullscreen?.()}});
+draw();refresh();setInterval(()=>{if(!document.hidden&&!loading&&replayIndex===null)refresh()},30000);
+</script>
+</body>
+</html>
