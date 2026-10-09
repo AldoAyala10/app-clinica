@@ -4,8 +4,9 @@ import '../../models/appointment.dart';
 import '../../state/app_state.dart';
 import '../../widgets/appointment_card.dart';
 import '../../widgets/patient_dashboard_feedback.dart';
+import '../../widgets/patient_appointments_loading.dart';
 
-class PatientAppointmentsTab extends StatefulWidget {
+class PatientAppointmentsTab extends PatientAppointmentsScreen {
   final AppState state;
   final VoidCallback onBookNew;
   final PatientAppointmentsLoader? appointmentLoader;
@@ -21,61 +22,14 @@ class PatientAppointmentsTab extends StatefulWidget {
   State<PatientAppointmentsTab> createState() => _PatientAppointmentsTabState();
 }
 
-class _PatientAppointmentsTabState extends State<PatientAppointmentsTab> {
+class _PatientAppointmentsTabState extends State<PatientAppointmentsTab>
+    with PatientAppointmentsLoading<PatientAppointmentsTab> {
   int _selectedTabIndex = 0; // 0: Próximas, 1: Historial
-  PatientViewStatus _status = PatientViewStatus.loading;
-  List<Appointment> _loadedAppointments = const [];
-  int _loadRequest = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAppointments();
-  }
-
-  @override
-  void didUpdateWidget(covariant PatientAppointmentsTab oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.state != widget.state ||
-        oldWidget.appointmentLoader != widget.appointmentLoader) {
-      _loadAppointments();
-    }
-  }
-
-  @override
-  void dispose() {
-    _loadRequest++;
-    super.dispose();
-  }
-
-  Future<void> _loadAppointments() async {
-    final request = ++_loadRequest;
-    setState(() => _status = PatientViewStatus.loading);
-    try {
-      // Sustituible por el repositorio del backend en otro Sprint.
-      final appointments = await (widget.appointmentLoader?.call() ??
-          Future<List<Appointment>>.delayed(
-            const Duration(milliseconds: 350),
-            () => List<Appointment>.of(widget.state.appointments),
-          ));
-      if (!mounted || request != _loadRequest) return;
-      setState(() {
-        _loadedAppointments = appointments;
-        _status = PatientViewStatus.ready;
-      });
-    } catch (_) {
-      if (!mounted || request != _loadRequest) return;
-      setState(() => _status = PatientViewStatus.error);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // Las citas continúan en AppState (Mock); la carga externa es opcional
     // y solo se utiliza para preparar la futura integración con el backend.
-    final source = widget.appointmentLoader == null
-        ? widget.state.appointments
-        : _loadedAppointments;
+    final source = appointmentSource;
     final patientAppointments = source
         .where((a) => a.patientName == widget.state.patientName)
         .toList();
@@ -238,7 +192,7 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab> {
 
               // Estado de la lista: cargando, error, vacío o resultados.
               Expanded(
-                child: _status == PatientViewStatus.loading
+                child: patientStatus == PatientViewStatus.loading
                     ? const Center(
                         child: PatientDashboardFeedback(
                           key: Key('patient_appointments_loading'),
@@ -247,7 +201,7 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab> {
                           message: 'Un momento, estamos preparando tu agenda.',
                         ),
                       )
-                    : _status == PatientViewStatus.error
+                    : patientStatus == PatientViewStatus.error
                         ? Center(
                             child: PatientDashboardFeedback(
                               key: const Key('patient_appointments_error'),
@@ -255,7 +209,7 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab> {
                               title: 'No pudimos obtener tus citas',
                               message: 'No se pudo consultar tu agenda. Inténtalo otra vez.',
                               actionText: 'Reintentar',
-                              onAction: _loadAppointments,
+                              onAction: refreshAppointments,
                             ),
                           )
                         : activeList.isEmpty

@@ -3,9 +3,10 @@ import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
 import '../../models/appointment.dart';
 import '../../widgets/patient_dashboard_feedback.dart';
+import '../../widgets/patient_appointments_loading.dart';
 import '../../widgets/appointment_card.dart';
 
-class PatientHomeTab extends StatefulWidget {
+class PatientHomeTab extends PatientAppointmentsScreen {
   final AppState state;
   final Function(int) onTabChange;
   final PatientAppointmentsLoader? appointmentLoader;
@@ -21,60 +22,12 @@ class PatientHomeTab extends StatefulWidget {
   State<PatientHomeTab> createState() => _PatientHomeTabState();
 }
 
-class _PatientHomeTabState extends State<PatientHomeTab> {
-  PatientViewStatus _status = PatientViewStatus.loading;
-  List<Appointment> _loadedAppointments = const [];
-  int _loadRequest = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAppointments();
-  }
-
-  @override
-  void didUpdateWidget(covariant PatientHomeTab oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.state != widget.state ||
-        oldWidget.appointmentLoader != widget.appointmentLoader) {
-      _loadAppointments();
-    }
-  }
-
-  @override
-  void dispose() {
-    _loadRequest++;
-    super.dispose();
-  }
-
-  Future<void> _loadAppointments() async {
-    final request = ++_loadRequest;
-    setState(() => _status = PatientViewStatus.loading);
-    try {
-      // Demo: lee las citas Mock con demora breve. La dependencia opcional
-      // permite probar respuestas vacías y fallos sin ninguna petición de red.
-      final appointments = await (widget.appointmentLoader?.call() ??
-          Future<List<Appointment>>.delayed(
-            const Duration(milliseconds: 350),
-            () => List<Appointment>.of(widget.state.appointments),
-          ));
-      if (!mounted || request != _loadRequest) return;
-      setState(() {
-        _loadedAppointments = appointments;
-        _status = PatientViewStatus.ready;
-      });
-    } catch (_) {
-      if (!mounted || request != _loadRequest) return;
-      setState(() => _status = PatientViewStatus.error);
-    }
-  }
-
+class _PatientHomeTabState extends State<PatientHomeTab>
+    with PatientAppointmentsLoading<PatientHomeTab> {
   List<Appointment> get _upcomingAppointments {
-    if (_status != PatientViewStatus.ready) return const [];
+    if (patientStatus != PatientViewStatus.ready) return const [];
     // Con AppState se leen datos actualizados tras agendar/cancelar una cita.
-    final source = widget.appointmentLoader == null
-        ? widget.state.appointments
-        : _loadedAppointments;
+    final source = appointmentSource;
     final today = DateUtils.dateOnly(DateTime.now());
     final result = source
         .where((appointment) =>
@@ -146,21 +99,21 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
               const SizedBox(height: 20),
 
               // Tarjeta principal: estados de carga, error y contenido.
-              if (_status == PatientViewStatus.loading)
+              if (patientStatus == PatientViewStatus.loading)
                 const PatientDashboardFeedback(
                   key: Key('patient_home_loading'),
                   loading: true,
                   title: 'Cargando tus citas',
                   message: 'Estamos preparando la información de tus citas.',
                 )
-              else if (_status == PatientViewStatus.error)
+              else if (patientStatus == PatientViewStatus.error)
                 PatientDashboardFeedback(
                   key: const Key('patient_home_error'),
                   icon: Icons.cloud_off_rounded,
                   title: 'No se pudieron cargar tus citas',
                   message: 'Ocurrió un error al obtener la información. Vuelve a intentarlo.',
                   actionText: 'Reintentar',
-                  onAction: _loadAppointments,
+                  onAction: refreshAppointments,
                 )
               else
               Container(
@@ -295,7 +248,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                     color: AppTheme.textPrimary),
               ),
               const SizedBox(height: 12),
-              if (_status == PatientViewStatus.ready && upcoming.isEmpty)
+              if (patientStatus == PatientViewStatus.ready && upcoming.isEmpty)
                 PatientDashboardFeedback(
                   key: const Key('patient_home_empty'),
                   icon: Icons.event_available_rounded,
@@ -304,7 +257,7 @@ class _PatientHomeTabState extends State<PatientHomeTab> {
                   actionText: 'Agendar cita',
                   onAction: () => widget.onTabChange(2),
                 )
-              else if (_status == PatientViewStatus.ready)
+              else if (patientStatus == PatientViewStatus.ready)
                 ...upcoming.take(3).map((appointment) => AppointmentCard(
                   appointment: appointment,
                   isDoctorView: false,
