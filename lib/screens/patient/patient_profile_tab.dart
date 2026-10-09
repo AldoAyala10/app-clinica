@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../../services/auth_service.dart';
 import '../welcome_screen.dart';
 
 class PatientProfileTab extends StatelessWidget {
@@ -33,7 +35,10 @@ class PatientProfileTab extends StatelessWidget {
               // User Info Card
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 24,
+                  horizontal: 16,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
@@ -158,7 +163,9 @@ class PatientProfileTab extends StatelessWidget {
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(20),
                   child: InkWell(
-                    onTap: () {
+                    onTap: () async {
+                      await AuthService.instance.signOut();
+                      if (!context.mounted) return;
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(
                           builder: (context) => const WelcomeScreen(),

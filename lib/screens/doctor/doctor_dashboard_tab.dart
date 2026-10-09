@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/app_theme.dart';
 import '../../models/appointment.dart';
 import '../../state/app_state.dart';
@@ -100,10 +101,7 @@ class DoctorDashboardTab extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF0066FF),
-                      Color(0xFF004EC2),
-                    ],
+                    colors: [Color(0xFF0066FF), Color(0xFF004EC2)],
                   ),
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
@@ -190,12 +188,14 @@ class DoctorDashboardTab extends StatelessWidget {
                           ],
                         ),
                         ElevatedButton(
-                          onPressed: () {
-                            _showAppointmentDetailsModal(
-                              context,
-                              state.appointments.first,
-                            );
-                          },
+                          onPressed: state.appointments.isEmpty
+                              ? null
+                              : () {
+                                  _showAppointmentDetailsModal(
+                                    context,
+                                    state.appointments.first,
+                                  );
+                                },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: AppTheme.primaryBlue,
@@ -300,12 +300,13 @@ class DoctorDashboardTab extends StatelessWidget {
                 (appointment) => AppointmentCard(
                   appointment: appointment,
                   isDoctorView: true,
-                  onTap: () => _showAppointmentDetailsModal(context, appointment),
+                  onTap: () =>
+                      _showAppointmentDetailsModal(context, appointment),
                   onStatusToggle: () {
                     final nextStatus =
                         appointment.status == AppointmentStatus.confirmada
-                            ? AppointmentStatus.pendiente
-                            : AppointmentStatus.confirmada;
+                        ? AppointmentStatus.pendiente
+                        : AppointmentStatus.confirmada;
                     state.updateAppointmentStatus(appointment.id, nextStatus);
                   },
                 ),
@@ -367,7 +368,10 @@ class DoctorDashboardTab extends StatelessWidget {
     );
   }
 
-  void _showAppointmentDetailsModal(BuildContext context, Appointment appointment) {
+  void _showAppointmentDetailsModal(
+    BuildContext context,
+    Appointment appointment,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -404,7 +408,10 @@ class DoctorDashboardTab extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: appointment.status.bgLight,
                       borderRadius: BorderRadius.circular(20),

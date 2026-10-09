@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
 import '../widgets/tooth_logo.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../state/app_state.dart';
+import '../services/auth_service.dart';
 import 'register_screen.dart';
 import 'doctor/doctor_main_screen.dart';
 import 'patient/patient_main_screen.dart';
@@ -17,9 +19,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'dr.sandoval@labstock.com');
-  final _passwordController = TextEditingController(text: '••••••••');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
   UserRole _selectedRole = UserRole.doctor;
   List<String> _validationErrors = const [];
 
@@ -41,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return emailRegex.hasMatch(trimmedEmail);
   }
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     final email = _emailController.text;
     final password = _passwordController.text;
     final errors = <String>[];
@@ -62,20 +65,79 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    if (_selectedRole == UserRole.doctor) {
+    setState(() => _isLoading = true);
+    final UserRole role;
+    try {
+      role = await AuthService.instance.signIn(
+        email: email,
+        password: password,
+      );
+    } on AuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _validationErrors = [e.message];
+        });
+      }
+      return;
+    }
+
+    if (role != _selectedRole) {
+      await AuthService.instance.signOut();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _validationErrors = [
+            role == UserRole.doctor
+                ? 'Esta cuenta es de doctor. Selecciona "Doctor".'
+                : 'Esta cuenta es de paciente. Selecciona "Paciente".',
+          ];
+        });
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (role == UserRole.doctor) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => const DoctorMainScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const DoctorMainScreen()),
         (route) => false,
       );
     } else {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => const PatientMainScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const PatientMainScreen()),
         (route) => false,
       );
+    }
+  }
+
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text;
+    if (!_isValidEmail(email)) {
+      setState(() {
+        _validationErrors = [
+          'Escribe tu correo arriba para enviarte el enlace de recuperación.',
+        ];
+      });
+      return;
+    }
+
+    try {
+      await AuthService.instance.sendPasswordReset(email);
+      if (!mounted) return;
+      setState(() => _validationErrors = const []);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Te enviamos un correo para restablecer tu contraseña.',
+          ),
+          backgroundColor: AppTheme.successGreen,
+        ),
+      );
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _validationErrors = [e.message]);
     }
   }
 
@@ -90,10 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
 
               // Tooth Logo
-              const Hero(
-                tag: 'login_tooth_logo',
-                child: ToothLogo(size: 90),
-              ),
+              const Hero(tag: 'login_tooth_logo', child: ToothLogo(size: 90)),
               const SizedBox(height: 24),
 
               // White Card Container matching Figma Screen 2
@@ -144,11 +203,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               onTap: () {
                                 setState(() {
                                   _selectedRole = UserRole.doctor;
-                                  _emailController.text = 'dr.sandoval@labstock.com';
                                 });
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
                                 decoration: BoxDecoration(
                                   color: _selectedRole == UserRole.doctor
                                       ? Colors.white
@@ -189,11 +249,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               onTap: () {
                                 setState(() {
                                   _selectedRole = UserRole.patient;
-                                  _emailController.text = 'maria.moreno@gmail.com';
                                 });
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
                                 decoration: BoxDecoration(
                                   color: _selectedRole == UserRole.patient
                                       ? Colors.white
@@ -289,7 +350,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: _handleForgotPassword,
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(0, 0),
@@ -310,6 +371,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     CustomButton(
                       text: 'Iniciar Sesión',
                       onPressed: _handleLogin,
+                      isLoading: _isLoading,
                     ),
                   ],
                 ),

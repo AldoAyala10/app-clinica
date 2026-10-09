@@ -58,6 +58,7 @@ class _BookAppointmentTabState extends State<BookAppointmentTab> {
     final day = _calendarDays[_selectedDayIndex]['date'];
 
     widget.state.addAppointment(
+      patientId: widget.state.uid,
       patientName: widget.state.patientName,
       doctorName: doctor.name,
       specialty: treatment,

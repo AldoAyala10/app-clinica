@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
 import '../widgets/tooth_logo.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
+import '../services/auth_service.dart';
 import 'patient/patient_main_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -19,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
   List<String> _validationErrors = const [];
 
   @override
@@ -41,10 +44,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return emailRegex.hasMatch(trimmedEmail);
   }
 
-  void _handleRegister() {
+  Future<void> _handleRegister() async {
+    final name = _nameController.text;
     final email = _emailController.text;
     final password = _passwordController.text;
     final errors = <String>[];
+
+    if (name.trim().isEmpty) {
+      errors.add('Ingresa tu nombre completo.');
+    }
 
     if (!_isValidEmail(email)) {
       errors.add('Ingresa un correo electrónico válido.');
@@ -62,16 +70,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    setState(() => _isLoading = true);
+    try {
+      await AuthService.instance.register(
+        name: name,
+        email: email,
+        phone: _phoneController.text,
+        password: password,
+      );
+    } on AuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _validationErrors = [e.message];
+        });
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('¡Cuenta creada exitosamente! Bienvenido a Clínica Dental'),
+        content: Text(
+          '¡Cuenta creada exitosamente! Bienvenido a Clínica Dental',
+        ),
         backgroundColor: AppTheme.successGreen,
       ),
     );
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (context) => const PatientMainScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const PatientMainScreen()),
       (route) => false,
     );
   }
@@ -208,6 +237,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     CustomButton(
                       text: 'Registrarse',
                       onPressed: _handleRegister,
+                      isLoading: _isLoading,
                     ),
                   ],
                 ),

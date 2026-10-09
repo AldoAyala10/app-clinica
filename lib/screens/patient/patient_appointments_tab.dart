@@ -23,10 +23,8 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter for patient appointments (María Moreno)
-    final patientAppointments = widget.state.appointments
-        .where((a) => a.patientName == widget.state.patientName)
-        .toList();
+    // AppState ya trae solo las citas de este paciente (por uid).
+    final patientAppointments = widget.state.appointments;
 
     final upcoming = patientAppointments
         .where((a) =>

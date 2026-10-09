@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../../services/auth_service.dart';
 import '../welcome_screen.dart';
-import '../patient/patient_main_screen.dart';
 import 'doctor_dashboard_tab.dart';
 import 'doctor_agenda_tab.dart';
 import 'doctor_patients_tab.dart';
@@ -22,10 +23,16 @@ class _DoctorMainScreenState extends State<DoctorMainScreen> {
   @override
   void initState() {
     super.initState();
-    _state = AppState();
+    _state = AppState(role: UserRole.doctor);
     _state.addListener(() {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void dispose() {
+    _state.dispose();
+    super.dispose();
   }
 
   @override
@@ -79,29 +86,6 @@ class _DoctorMainScreenState extends State<DoctorMainScreen> {
           ],
         ),
         actions: [
-          // Switch to Patient View button
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => const PatientMainScreen(),
-                ),
-              );
-            },
-            icon: const Icon(
-              Icons.swap_horiz_rounded,
-              size: 18,
-              color: AppTheme.primaryBlue,
-            ),
-            label: const Text(
-              'Vista Paciente',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.primaryBlue,
-              ),
-            ),
-          ),
           IconButton(
             icon: const Icon(
               Icons.logout_rounded,
@@ -109,11 +93,11 @@ class _DoctorMainScreenState extends State<DoctorMainScreen> {
               size: 20,
             ),
             tooltip: 'Cerrar sesión',
-            onPressed: () {
+            onPressed: () async {
+              await AuthService.instance.signOut();
+              if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (context) => const WelcomeScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const WelcomeScreen()),
                 (route) => false,
               );
             },
@@ -121,10 +105,7 @@ class _DoctorMainScreenState extends State<DoctorMainScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: tabs,
-      ),
+      body: IndexedStack(index: _currentIndex, children: tabs),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,

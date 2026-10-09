@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isDoctor() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'doctor';
+    }
+
+    // Perfil de cada cuenta. El rol solo se crea como "patient" desde la app;
+    // los doctores se marcan a mano desde la consola.
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isDoctor());
+      allow create: if signedIn() && request.auth.uid == uid
+                    && request.resource.data.role == 'patient';
+      allow update: if signedIn() && request.auth.uid == uid
+                    && request.resource.data.role == resource.data.role;
+    }
+
+    // Fichas de pacientes: el doctor las administra; el paciente solo
+    // puede crear y leer la suya (mismo id que su cuenta).
+    match /patients/{patientId} {
+      allow read: if isDoctor() || (signedIn() && request.auth.uid == patientId);
+      allow create: if isDoctor()
+                    || (signedIn() && request.auth.uid == patientId
+                        && request.resource.data.userId == request.auth.uid);
+      allow update, delete: if isDoctor();
+    }
+
+    // Citas: el doctor ve y edita todas; el paciente solo las suyas,
+    // las crea como "pendiente" y únicamente puede cancelarlas.
+    match /appointments/{id} {
+      allow read: if isDoctor()
+                  || (signedIn() && resource.data.patientId == request.auth.uid);
+      allow create: if isDoctor()
+                    || (signedIn() && request.resource.data.patientId == request.auth.uid
+                        && request.resource.data.status == 'pendiente');
+      allow update: if isDoctor()
+                    || (signedIn() && resource.data.patientId == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+                        && request.resource.data.status == 'cancelada');
+      allow delete: if isDoctor();
+    }
+
+    // Inventario: solo doctores.
+    match /inventory/{id} {
+      allow read, write: if isDoctor();
+    }
+  }
+}

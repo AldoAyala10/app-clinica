@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/app_theme.dart';
 import '../../models/appointment.dart';
 import '../../state/app_state.dart';
+import '../../models/patient.dart';
 import '../../widgets/appointment_card.dart';
 
 class DoctorAgendaTab extends StatefulWidget {
@@ -72,7 +74,10 @@ class _DoctorAgendaTabState extends State<DoctorAgendaTab> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -121,21 +126,28 @@ class _DoctorAgendaTabState extends State<DoctorAgendaTab> {
                     },
                     child: Container(
                       width: 52,
-                      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected ? AppTheme.primaryBlue : Colors.white,
                         borderRadius: BorderRadius.circular(22),
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.35),
+                                  color: AppTheme.primaryBlue.withValues(
+                                    alpha: 0.35,
+                                  ),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
-                                )
+                                ),
                               ]
                             : AppTheme.softShadow,
                         border: Border.all(
-                          color: isSelected ? Colors.transparent : Colors.grey.shade200,
+                          color: isSelected
+                              ? Colors.transparent
+                              : Colors.grey.shade200,
                         ),
                       ),
                       child: Column(
@@ -146,7 +158,9 @@ class _DoctorAgendaTabState extends State<DoctorAgendaTab> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              color: isSelected ? Colors.white70 : AppTheme.textMuted,
+                              color: isSelected
+                                  ? Colors.white70
+                                  : AppTheme.textMuted,
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -155,7 +169,9 @@ class _DoctorAgendaTabState extends State<DoctorAgendaTab> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
-                              color: isSelected ? Colors.white : AppTheme.textPrimary,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppTheme.textPrimary,
                             ),
                           ),
                         ],
@@ -181,7 +197,9 @@ class _DoctorAgendaTabState extends State<DoctorAgendaTab> {
                       labelStyle: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: isSelected ? Colors.white : AppTheme.textSecondary,
+                        color: isSelected
+                            ? Colors.white
+                            : AppTheme.textSecondary,
                       ),
                       backgroundColor: Colors.white,
                       selectedColor: AppTheme.primaryBlue,
@@ -189,7 +207,9 @@ class _DoctorAgendaTabState extends State<DoctorAgendaTab> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                         side: BorderSide(
-                          color: isSelected ? Colors.transparent : Colors.grey.shade300,
+                          color: isSelected
+                              ? Colors.transparent
+                              : Colors.grey.shade300,
                         ),
                       ),
                       onSelected: (_) {
@@ -207,7 +227,10 @@ class _DoctorAgendaTabState extends State<DoctorAgendaTab> {
             // List of Appointments for the selected day
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 itemCount: filteredAppointments.length,
                 itemBuilder: (context, index) {
                   final app = filteredAppointments[index];
@@ -232,7 +255,7 @@ class _DoctorAgendaTabState extends State<DoctorAgendaTab> {
   }
 
   void _showNewAppointmentModal(BuildContext context) {
-    final patientNameCtrl = TextEditingController();
+    String? selectedPatientId;
     final specialtyCtrl = TextEditingController(text: 'Limpieza Dental');
     final timeCtrl = TextEditingController(text: '12:00 PM');
 
@@ -242,84 +265,102 @@ class _DoctorAgendaTabState extends State<DoctorAgendaTab> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 24,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Agendar Nueva Cita',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 18),
-              TextField(
-                controller: patientNameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre del Paciente',
-                  hintText: 'Ej. Laura Fuentes',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: specialtyCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Procedimiento / Tratamiento',
-                  hintText: 'Ej. Ortodoncia, Limpieza',
-                  prefixIcon: Icon(Icons.medical_services_outlined),
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: timeCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Horario',
-                  hintText: 'Ej. 09:30 AM',
-                  prefixIcon: Icon(Icons.access_time_rounded),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () {
-                  if (patientNameCtrl.text.isNotEmpty) {
-                    widget.state.addAppointment(
-                      patientName: patientNameCtrl.text.trim(),
-                      doctorName: widget.state.doctorName,
-                      specialty: specialtyCtrl.text.trim(),
-                      date: DateTime.now(),
-                      time: timeCtrl.text.trim(),
-                    );
-                    Navigator.pop(context);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryBlue,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 24,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Agendar Nueva Cita',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
-                child: const Text(
-                  'Confirmar y Guardar',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                const SizedBox(height: 18),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedPatientId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Paciente',
+                    hintText: widget.state.patients.isEmpty
+                        ? 'Aún no hay pacientes registrados'
+                        : 'Selecciona un paciente',
+                    prefixIcon: const Icon(Icons.person_outline_rounded),
+                  ),
+                  items: widget.state.patients
+                      .map(
+                        (p) =>
+                            DropdownMenuItem(value: p.id, child: Text(p.name)),
+                      )
+                      .toList(),
+                  onChanged: (id) =>
+                      setModalState(() => selectedPatientId = id),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+                const SizedBox(height: 14),
+                TextField(
+                  controller: specialtyCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Procedimiento / Tratamiento',
+                    hintText: 'Ej. Ortodoncia, Limpieza',
+                    prefixIcon: Icon(Icons.medical_services_outlined),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: timeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Horario',
+                    hintText: 'Ej. 09:30 AM',
+                    prefixIcon: Icon(Icons.access_time_rounded),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () {
+                    final Patient? patient = widget.state.patients
+                        .where((p) => p.id == selectedPatientId)
+                        .firstOrNull;
+                    if (patient != null) {
+                      widget.state.addAppointment(
+                        patientId: patient.userId,
+                        patientName: patient.name,
+                        status: AppointmentStatus.confirmada,
+                        doctorName: widget.state.doctorName,
+                        specialty: specialtyCtrl.text.trim(),
+                        date: DateTime.now(),
+                        time: timeCtrl.text.trim(),
+                      );
+                      Navigator.pop(context);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryBlue,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Confirmar y Guardar',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
