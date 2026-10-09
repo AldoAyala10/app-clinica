@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
@@ -10,8 +12,19 @@ import 'register_screen.dart';
 import 'doctor/doctor_main_screen.dart';
 import 'patient/patient_main_screen.dart';
 
+/// Punto de inyección para poder probar errores de red sin conectar el backend.
+typedef LoginAuthenticator = Future<UserRole?> Function(String email, String password);
+
+/// El servicio real podrá lanzar esta excepción cuando falle la conexión.
+/// MockAuthRepository no realiza solicitudes de red.
+class LoginConnectionException implements Exception {
+  const LoginConnectionException();
+}
+
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.authenticate});
+
+  final LoginAuthenticator? authenticate;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -23,6 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   UserRole _selectedRole = UserRole.doctor;
   List<String> _validationErrors = const [];
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -42,36 +56,88 @@ class _LoginScreenState extends State<LoginScreen> {
     return emailRegex.hasMatch(trimmedEmail);
   }
 
-  void _handleLogin() {
+  Future<UserRole?> _authenticateWithMock(String email, String password) async {
+    // Demora artificial SOLO para mostrar el indicador de carga en la demo.
+    // El compañero responsable del backend puede sustituir este adaptador.
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    return const MockAuthRepository().authenticate(email, password);
+  }
+
+  Future<void> _handleLogin() async {
+    // Protege también contra llamadas repetidas antes del siguiente frame.
+    if (_isLoading) return;
     final email = _emailController.text;
     final password = _passwordController.text;
+    final selectedRole = _selectedRole;
     final errors = <String>[];
 
     if (!_isValidEmail(email)) {
       errors.add('Ingresa un correo electrónico válido.');
     }
-
     if (password.trim().length < 6) {
       errors.add('La contraseña debe tener al menos 6 caracteres.');
     }
 
-    setState(() {
-      _validationErrors = errors;
-    });
-
     if (errors.isNotEmpty) {
+      setState(() => _validationErrors = errors);
       return;
     }
 
-    final role = const MockAuthRepository().authenticate(email, password);
-    if (role == null || role != _selectedRole) {
+    setState(() {
+      _validationErrors = const [];
+      _isLoading = true;
+    });
+
+    UserRole? role;
+    try {
+      final authenticate = widget.authenticate;
+      role = authenticate != null
+          ? await authenticate(email, password)
+          : await _authenticateWithMock(email, password);
+    } on LoginConnectionException {
+      if (mounted) {
+        setState(() {
+          _validationErrors = [
+            'No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.'
+          ];
+        });
+      }
+      return;
+    } on TimeoutException {
+      if (mounted) {
+        setState(() {
+          _validationErrors = [
+            'La conexión tardó demasiado. Intenta de nuevo.'
+          ];
+        });
+      }
+      return;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _validationErrors = [
+            'Ocurrió un error inesperado al iniciar sesión. Intenta de nuevo.'
+          ];
+        });
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+
+    if (!mounted) return;
+    if (role == null) {
+      setState(() => _validationErrors = ['Correo o contraseña incorrectos.']);
+      return;
+    }
+    if (role != selectedRole) {
       setState(() {
         _validationErrors = ['Credenciales incorrectas para el rol seleccionado.'];
       });
       return;
     }
-    AppState.session.login(role);
 
+    AppState.session.login(role);
     if (role == UserRole.doctor) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
@@ -152,10 +218,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
+                                if (_isLoading) return;
                                 setState(() {
                                   _selectedRole = UserRole.doctor;
                                   _emailController.text = 'admin@test.com';
                                   _passwordController.clear();
+                                  _validationErrors = const [];
                                 });
                               },
                               child: Container(
@@ -198,10 +266,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
+                                if (_isLoading) return;
                                 setState(() {
                                   _selectedRole = UserRole.patient;
                                   _emailController.text = 'paciente@test.com';
                                   _passwordController.clear();
+                                  _validationErrors = const [];
                                 });
                               },
                               child: Container(
@@ -326,7 +396,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Submit Button
                     CustomButton(
                       text: 'Iniciar Sesión',
-                      onPressed: _handleLogin,
+                      isLoading: _isLoading,
+                      onPressed: _isLoading ? null : _handleLogin,
                     ),
                   ],
                 ),
@@ -348,6 +419,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   GestureDetector(
                     onTap: () {
+                      if (_isLoading) return;
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => const RegisterScreen(),
