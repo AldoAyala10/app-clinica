@@ -27,7 +27,7 @@ void main() {
     await tester.tap(find.byKey(const Key('book_date_picker')));
     await tester.pumpAndSettle();
     expect(find.byType(DatePickerDialog), findsOneWidget);
-    await tester.pageBack();
+    Navigator.of(tester.element(find.byType(DatePickerDialog))).pop();
     await tester.pumpAndSettle();
   });
 
