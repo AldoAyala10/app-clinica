@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "597748077212",
+    "project_id": "abril-34b9c",
+    "storage_bucket": "abril-34b9c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:597748077212:android:04a38c12116f8ee8c25359",
+        "android_client_info": {
+          "package_name": "com.labstock.app_clinica"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsGSd5N5N5u0hSW59-0CLqzYeHHCLCGao"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

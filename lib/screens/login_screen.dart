@@ -1,17 +1,29 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
 import '../widgets/tooth_logo.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../state/app_state.dart';
-import '../data/mock_auth_repository.dart';
+import '../services/auth_service.dart';
 import 'register_screen.dart';
 import 'doctor/doctor_main_screen.dart';
 import 'patient/patient_main_screen.dart';
 
+/// Inicia sesión y devuelve el rol de la cuenta. Lanza [AuthException] con
+/// un mensaje para el usuario si falla. Se inyecta en pruebas.
+typedef LoginAuthenticator = Future<UserRole> Function(
+  String email,
+  String password,
+);
+
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.authenticate});
+
+  final LoginAuthenticator? authenticate;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -21,6 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
   UserRole _selectedRole = UserRole.doctor;
   List<String> _validationErrors = const [];
 
@@ -42,9 +55,20 @@ class _LoginScreenState extends State<LoginScreen> {
     return emailRegex.hasMatch(trimmedEmail);
   }
 
-  void _handleLogin() {
+  Future<UserRole> _signIn(String email, String password) {
+    final authenticate = widget.authenticate;
+    if (authenticate != null) return authenticate(email, password);
+    return AuthService.instance
+        .signIn(email: email, password: password)
+        .timeout(const Duration(seconds: 20));
+  }
+
+  Future<void> _handleLogin() async {
+    // Protege contra pulsaciones repetidas antes del siguiente frame.
+    if (_isLoading) return;
     final email = _emailController.text;
     final password = _passwordController.text;
+    final selectedRole = _selectedRole;
     final errors = <String>[];
 
     if (!_isValidEmail(email)) {
@@ -63,29 +87,81 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final role = const MockAuthRepository().authenticate(email, password);
-    if (role == null || role != _selectedRole) {
-      setState(() {
-        _validationErrors = ['Credenciales incorrectas para el rol seleccionado.'];
-      });
+    setState(() => _isLoading = true);
+    final UserRole role;
+    try {
+      role = await _signIn(email, password);
+    } catch (e) {
+      final message = switch (e) {
+        AuthException(:final message) => message,
+        TimeoutException() => 'La conexión tardó demasiado. Intenta de nuevo.',
+        _ => 'Ocurrió un error inesperado al iniciar sesión. Intenta de nuevo.',
+      };
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _validationErrors = [message];
+        });
+      }
       return;
     }
-    AppState.session.login(role);
+
+    if (role != selectedRole) {
+      await AuthService.instance.signOut();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _validationErrors = [
+            role == UserRole.doctor
+                ? 'Esta cuenta es de doctor. Selecciona "Doctor".'
+                : 'Esta cuenta es de paciente. Selecciona "Paciente".',
+          ];
+        });
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
     if (role == UserRole.doctor) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => const DoctorMainScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const DoctorMainScreen()),
         (route) => false,
       );
     } else {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => const PatientMainScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const PatientMainScreen()),
         (route) => false,
       );
+    }
+  }
+
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text;
+    if (!_isValidEmail(email)) {
+      setState(() {
+        _validationErrors = [
+          'Escribe tu correo arriba para enviarte el enlace de recuperación.',
+        ];
+      });
+      return;
+    }
+
+    try {
+      await AuthService.instance.sendPasswordReset(email);
+      if (!mounted) return;
+      setState(() => _validationErrors = const []);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Te enviamos un correo para restablecer tu contraseña.',
+          ),
+          backgroundColor: AppTheme.successGreen,
+        ),
+      );
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _validationErrors = [e.message]);
     }
   }
 
@@ -100,10 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
 
               // Tooth Logo
-              const Hero(
-                tag: 'login_tooth_logo',
-                child: ToothLogo(size: 90),
-              ),
+              const Hero(tag: 'login_tooth_logo', child: ToothLogo(size: 90)),
               const SizedBox(height: 24),
 
               // White Card Container matching Figma Screen 2
@@ -152,14 +225,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
+                                if (_isLoading) return;
                                 setState(() {
                                   _selectedRole = UserRole.doctor;
-                                  _emailController.text = 'admin@test.com';
-                                  _passwordController.clear();
+                                  _validationErrors = const [];
                                 });
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
                                 decoration: BoxDecoration(
                                   color: _selectedRole == UserRole.doctor
                                       ? Colors.white
@@ -198,14 +273,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
+                                if (_isLoading) return;
                                 setState(() {
                                   _selectedRole = UserRole.patient;
-                                  _emailController.text = 'paciente@test.com';
-                                  _passwordController.clear();
+                                  _validationErrors = const [];
                                 });
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
                                 decoration: BoxDecoration(
                                   color: _selectedRole == UserRole.patient
                                       ? Colors.white
@@ -245,11 +322,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-
-                    const Text(
-                      'Demo: admin@test.com / admin123 o paciente@test.com / paciente123',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                    ),
 
                     // Email Field
                     CustomTextField(
@@ -306,7 +378,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: _handleForgotPassword,
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(0, 0),
@@ -326,7 +398,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Submit Button
                     CustomButton(
                       text: 'Iniciar Sesión',
-                      onPressed: _handleLogin,
+                      onPressed: _isLoading ? null : _handleLogin,
+                      isLoading: _isLoading,
                     ),
                   ],
                 ),
@@ -348,6 +421,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   GestureDetector(
                     onTap: () {
+                      if (_isLoading) return;
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => const RegisterScreen(),

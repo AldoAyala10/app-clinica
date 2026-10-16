@@ -1,30 +1,45 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
 import '../models/appointment.dart';
 import '../models/patient.dart';
 import '../models/doctor.dart';
 import '../models/inventory_item.dart';
+import '../services/auth_service.dart';
 
-enum UserRole {
-  doctor,
-  patient,
-}
+enum UserRole { doctor, patient }
 
 class AppState extends ChangeNotifier {
-  static final AppState session = AppState();
+  /// Escucha en tiempo real los datos de Firestore que le tocan al rol:
+  /// el doctor ve todo; el paciente solo sus propias citas.
+  AppState({required UserRole role}) : _currentRole = role {
+    _listen();
+  }
 
-  UserRole _currentRole = UserRole.doctor;
+  final FirebaseFirestore _db = AuthService.instance.db;
+  final List<StreamSubscription> _subs = [];
+
+  CollectionReference<Map<String, dynamic>> get _appointmentsRef =>
+      _db.collection('appointments');
+  CollectionReference<Map<String, dynamic>> get _patientsRef =>
+      _db.collection('patients');
+  CollectionReference<Map<String, dynamic>> get _inventoryRef =>
+      _db.collection('inventory');
+
+  final UserRole _currentRole;
   UserRole get currentRole => _currentRole;
 
-  bool _isLoggedIn = false;
-  bool get isLoggedIn => _isLoggedIn;
+  String? get uid => AuthService.instance.currentUser?.uid;
 
   // Patient Profile Info
-  String patientName = 'María Moreno';
-  String patientEmail = 'paciente@test.com';
-  String patientPhone = '+52 442 892 1042';
+  String patientName = '';
+  String patientEmail = '';
+  String patientPhone = '';
 
   // Doctor Profile Info
-  String doctorName = 'Dr. Sandoval';
+  String doctorName = '';
   String doctorSpecialty = 'Odontología Integral';
   String clinicName = 'Clínica Dental';
 
@@ -56,196 +71,133 @@ class AppState extends ChangeNotifier {
     ),
   ];
 
-  // Patients Directory (Screen 7 in Figma)
-  final List<Patient> _patients = [
-    Patient(
-      id: 'p1',
-      name: 'Ana Martínez Ortiz',
-      phone: '442 123 4567',
-      email: 'ana.martinez@gmail.com',
-      lastVisit: DateTime(2024, 10, 12),
-      treatment: 'Ortodoncia',
-      avatarColor: const Color(0xFF3B82F6),
-      medicalAlerts: ['Alergia a la penicilina'],
-    ),
-    Patient(
-      id: 'p2',
-      name: 'Alejandro Gómez',
-      phone: '442 234 5678',
-      email: 'alejandro.g@outlook.com',
-      lastVisit: DateTime(2024, 10, 10),
-      treatment: 'Profilaxis Profunda',
-      avatarColor: const Color(0xFF10B981),
-    ),
-    Patient(
-      id: 'p3',
-      name: 'Diego Castro',
-      phone: '442 345 6789',
-      email: 'diegocastro@gmail.com',
-      lastVisit: DateTime(2024, 10, 5),
-      treatment: 'Endodoncia',
-      avatarColor: const Color(0xFFF59E0B),
-      medicalAlerts: ['Hipertensión controlada'],
-    ),
-    Patient(
-      id: 'p4',
-      name: 'Fernanda Mendoza',
-      phone: '442 456 7890',
-      email: 'fer.mendoza@gmail.com',
-      lastVisit: DateTime(2024, 9, 28),
-      treatment: 'Blanqueamiento Dental',
-      avatarColor: const Color(0xFF6366F1),
-    ),
-    Patient(
-      id: 'p5',
-      name: 'Elena Torres',
-      phone: '442 567 8901',
-      email: 'elena.torres@yahoo.com',
-      lastVisit: DateTime(2024, 9, 20),
-      treatment: 'Implante Dental',
-      avatarColor: const Color(0xFFEC4899),
-    ),
-    Patient(
-      id: 'p6',
-      name: 'Gabriel Silva',
-      phone: '442 678 9012',
-      email: 'gsilva@empresa.com',
-      lastVisit: DateTime(2024, 9, 15),
-      treatment: 'Revisión General',
-      avatarColor: const Color(0xFF14B8A6),
-    ),
-    Patient(
-      id: 'p7',
-      name: 'Valeria Ramos',
-      phone: '442 789 0123',
-      email: 'valeria.ramos@gmail.com',
-      lastVisit: DateTime(2024, 9, 2),
-      treatment: 'Ajuste de Brackets',
-      avatarColor: const Color(0xFF8B5CF6),
-    ),
-  ];
-
+  List<Patient> _patients = [];
   List<Patient> get patients => _patients;
 
-  // Appointments (Screens 4, 5, 6, 8, 9 in Figma)
-  final List<Appointment> _appointments = [
-    Appointment(
-      id: 'a1',
-      patientName: 'Sofía Villanueva',
-      doctorName: 'Dr. Carlos Sandoval',
-      specialty: 'Limpieza Dental',
-      date: DateTime.now(),
-      time: '09:30 AM',
-      status: AppointmentStatus.confirmada,
-      notes: 'Limpieza dental y aplicación de flúor preventivo',
-      avatarColor: const Color(0xFF3B82F6),
-    ),
-    Appointment(
-      id: 'a2',
-      patientName: 'Alberto Ojeda',
-      doctorName: 'Dra. Sofía Vega',
-      specialty: 'Ortodoncia - Ajuste',
-      date: DateTime.now(),
-      time: '11:30 AM',
-      status: AppointmentStatus.pendiente,
-      notes: 'Cambio de ligaduras y arco superior',
-      avatarColor: const Color(0xFFF59E0B),
-    ),
-    Appointment(
-      id: 'a3',
-      patientName: 'Carlos Morales',
-      doctorName: 'Dr. Carlos Sandoval',
-      specialty: 'Limpieza Dental',
-      date: DateTime.now().add(const Duration(days: 1)),
-      time: '09:00 AM - 10:00 AM',
-      status: AppointmentStatus.confirmada,
-      notes: 'Profilaxis ultrasónica anual',
-      avatarColor: const Color(0xFF10B981),
-    ),
-    Appointment(
-      id: 'a4',
-      patientName: 'Laura Fuentes',
-      doctorName: 'Dra. Sofía Vega',
-      specialty: 'Profilaxis Profunda',
-      date: DateTime.now().add(const Duration(days: 1)),
-      time: '10:30 AM - 11:30 AM',
-      status: AppointmentStatus.confirmada,
-      notes: 'Tratamiento gingival preventivo',
-      avatarColor: const Color(0xFF6366F1),
-    ),
-    Appointment(
-      id: 'a5',
-      patientName: 'Jorge Herrera',
-      doctorName: 'Dr. Roberto Mendoza',
-      specialty: 'Extracción Molar',
-      date: DateTime.now().add(const Duration(days: 2)),
-      time: '01:00 PM - 02:00 PM',
-      status: AppointmentStatus.pendiente,
-      notes: 'Extracción tercer molar inferior derecho',
-      avatarColor: const Color(0xFFF97316),
-    ),
-    Appointment(
-      id: 'a6',
-      patientName: 'Alejandra Rosales',
-      doctorName: 'Dra. Sofía Vega',
-      specialty: 'Revisión Brackets',
-      date: DateTime.now().add(const Duration(days: 2)),
-      time: '03:30 PM - 04:30 PM',
-      status: AppointmentStatus.confirmada,
-      notes: 'Control semestral ortodoncia estética',
-      avatarColor: const Color(0xFF10B981),
-    ),
-    // Patient perspective appointments (María Moreno)
-    Appointment(
-      id: 'a7',
-      patientName: 'María Moreno',
-      doctorName: 'Dra. Sofía Vega',
-      specialty: 'Ortodoncia - Revisión Mensual',
-      date: DateTime.now().add(const Duration(days: 3)),
-      time: '10:00 AM - 11:00 AM',
-      status: AppointmentStatus.confirmada,
-      notes: 'Revisión mensual de brackets estéticos de zafiro',
-      avatarColor: const Color(0xFFEC4899),
-    ),
-    Appointment(
-      id: 'a8',
-      patientName: 'María Moreno',
-      doctorName: 'Dr. Carlos Sandoval',
-      specialty: 'Limpieza Dental y Profilaxis',
-      date: DateTime.now().add(const Duration(days: 12)),
-      time: '04:30 PM - 05:30 PM',
-      status: AppointmentStatus.pendiente,
-      notes: 'Profilaxis ultrasónica semestral',
-      avatarColor: const Color(0xFF0066FF),
-    ),
-    Appointment(
-      id: 'a9',
-      patientName: 'María Moreno',
-      doctorName: 'Dra. Sofía Vega',
-      specialty: 'Ajuste de Retenedor',
-      date: DateTime.now().subtract(const Duration(days: 30)),
-      time: '11:00 AM - 12:00 PM',
-      status: AppointmentStatus.completada,
-      notes: 'Ajuste final exitoso',
-      avatarColor: const Color(0xFF8B5CF6),
-    ),
-  ];
-
+  List<Appointment> _appointments = [];
   List<Appointment> get appointments => _appointments;
 
+  /// Citas confirmadas o pendientes de hoy en adelante, de la más próxima a
+  /// la más lejana. Para el paciente, [appointments] ya son solo las suyas.
   List<Appointment> get upcomingPatientAppointments {
     final now = DateTime.now();
-    final result = _appointments.where((appointment) =>
-        appointment.patientName == patientName &&
-        !appointment.date.isBefore(DateTime(now.year, now.month, now.day)) &&
-        (appointment.status == AppointmentStatus.confirmada ||
-            appointment.status == AppointmentStatus.pendiente)).toList();
-    result.sort((a, b) => a.date.compareTo(b.date));
-    return result;
+    final today = DateTime(now.year, now.month, now.day);
+    return _appointments
+        .where((a) =>
+            !a.date.isBefore(today) &&
+            (a.status == AppointmentStatus.confirmada ||
+                a.status == AppointmentStatus.pendiente))
+        .toList();
   }
 
-  // LabStock Dental Laboratory Supplies
-  final List<InventoryItem> _inventory = [
+  List<InventoryItem> _inventory = [];
+  List<InventoryItem> get inventory => _inventory;
+
+  /// Mensaje del último error al leer o escribir en Firestore.
+  String? lastError;
+
+  bool _seedingInventory = false;
+
+  void _listen() {
+    final userId = uid;
+    if (userId == null) return;
+
+    _subs.add(
+      _db.collection('users').doc(userId).snapshots().listen((doc) {
+        final d = doc.data();
+        if (d == null) return;
+        if (_currentRole == UserRole.doctor) {
+          doctorName = d['name'] ?? doctorName;
+        } else {
+          patientName = d['name'] ?? patientName;
+          patientEmail = d['email'] ?? patientEmail;
+          patientPhone = d['phone'] ?? patientPhone;
+        }
+        notifyListeners();
+      }, onError: _onError),
+    );
+
+    _listenAppointments();
+
+    if (_currentRole != UserRole.doctor) return;
+
+    _subs.add(
+      _patientsRef.snapshots().listen((snap) {
+        _patients = snap.docs.map(Patient.fromDoc).toList()
+          ..sort((a, b) => b.lastVisit.compareTo(a.lastVisit));
+        notifyListeners();
+      }, onError: _onError),
+    );
+
+    _subs.add(
+      _inventoryRef.snapshots().listen((snap) {
+        if (snap.docs.isEmpty && !snap.metadata.isFromCache) {
+          _seedInventoryIfEmpty();
+        }
+        _inventory = snap.docs.map(InventoryItem.fromDoc).toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+        notifyListeners();
+      }, onError: _onError),
+    );
+  }
+
+  StreamSubscription? _appointmentsSub;
+
+  /// Falso hasta que llega la primera respuesta de Firestore con las citas.
+  bool appointmentsLoaded = false;
+
+  /// Error al leer las citas; se limpia al reintentar.
+  Object? appointmentsError;
+
+  void _listenAppointments() {
+    final userId = uid;
+    if (userId == null) return;
+    final query = _currentRole == UserRole.doctor
+        ? _appointmentsRef
+        : _appointmentsRef.where('patientId', isEqualTo: userId);
+    _appointmentsSub = query.snapshots().listen(
+      (snap) {
+        _appointments = snap.docs.map(Appointment.fromDoc).toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
+        appointmentsLoaded = true;
+        appointmentsError = null;
+        notifyListeners();
+      },
+      onError: (Object error) {
+        appointmentsError = error;
+        _onError(error);
+      },
+    );
+  }
+
+  /// Vuelve a suscribirse a las citas después de un error.
+  Future<void> retryAppointments() async {
+    await _appointmentsSub?.cancel();
+    appointmentsLoaded = false;
+    appointmentsError = null;
+    notifyListeners();
+    _listenAppointments();
+  }
+
+  void _onError(Object error) {
+    lastError = error.toString();
+    debugPrint('Firestore: $error');
+    notifyListeners();
+  }
+
+  /// La primera vez que un doctor abre el inventario vacío, se carga el
+  /// catálogo base de insumos.
+  Future<void> _seedInventoryIfEmpty() async {
+    if (_seedingInventory) return;
+    _seedingInventory = true;
+    final batch = _db.batch();
+    for (final item in _seedInventory) {
+      batch.set(_inventoryRef.doc(), item.toMap());
+    }
+    await batch.commit();
+  }
+
+  static final List<InventoryItem> _seedInventory = [
     InventoryItem(
       id: 'i1',
       name: 'Lidocaína 2% con Epinefrina',
@@ -254,7 +206,7 @@ class AppState extends ChangeNotifier {
       minStock: 20,
       unit: 'Cajas (50 carpules)',
       batch: 'LID-2024-09B',
-      expiryDate: DateTime(2025, 12, 31),
+      expiryDate: DateTime(2027, 12, 31),
     ),
     InventoryItem(
       id: 'i2',
@@ -264,7 +216,7 @@ class AppState extends ChangeNotifier {
       minStock: 15,
       unit: 'Jeringas 4g',
       batch: 'RS-3M-991',
-      expiryDate: DateTime(2026, 6, 30),
+      expiryDate: DateTime(2028, 6, 30),
     ),
     InventoryItem(
       id: 'i3',
@@ -274,7 +226,7 @@ class AppState extends ChangeNotifier {
       minStock: 25,
       unit: 'Cajas (100 u)',
       batch: 'GN-441-MX',
-      expiryDate: DateTime(2027, 1, 15),
+      expiryDate: DateTime(2029, 1, 15),
     ),
     InventoryItem(
       id: 'i4',
@@ -284,7 +236,7 @@ class AppState extends ChangeNotifier {
       minStock: 10,
       unit: 'Kits completos',
       batch: 'BK-RTH-2024',
-      expiryDate: DateTime(2028, 4, 30),
+      expiryDate: DateTime(2030, 4, 30),
     ),
     InventoryItem(
       id: 'i5',
@@ -294,7 +246,7 @@ class AppState extends ChangeNotifier {
       minStock: 30,
       unit: 'Cajas (100 u)',
       batch: 'AG-27G-88',
-      expiryDate: DateTime(2026, 11, 20),
+      expiryDate: DateTime(2028, 11, 20),
     ),
     InventoryItem(
       id: 'i6',
@@ -304,56 +256,114 @@ class AppState extends ChangeNotifier {
       minStock: 12,
       unit: 'Bolsas 450g',
       batch: 'KROM-2024-X',
-      expiryDate: DateTime(2025, 8, 15),
+      expiryDate: DateTime(2027, 8, 15),
     ),
   ];
 
-  List<InventoryItem> get inventory => _inventory;
-
-  // State modification actions
-  void login(UserRole role) {
-    _currentRole = role;
-    _isLoggedIn = true;
-    notifyListeners();
+  @override
+  void dispose() {
+    for (final sub in _subs) {
+      sub.cancel();
+    }
+    _appointmentsSub?.cancel();
+    super.dispose();
   }
 
-  void logout() {
-    _isLoggedIn = false;
-    notifyListeners();
-  }
-
-  void addAppointment({
+  Future<void> addAppointment({
+    String? patientId,
     required String patientName,
     required String doctorName,
     required String specialty,
     required DateTime date,
     required String time,
+    String notes = '',
+    AppointmentStatus status = AppointmentStatus.pendiente,
   }) {
-    _appointments.insert(
-      0,
-      Appointment(
-        id: 'a_${DateTime.now().millisecondsSinceEpoch}',
-        patientName: patientName,
-        doctorName: doctorName,
-        specialty: specialty,
-        date: date,
-        time: time,
-        status: AppointmentStatus.confirmada,
-        avatarColor: const Color(0xFF0066FF),
-      ),
+    final appointment = Appointment(
+      id: '',
+      patientId: patientId,
+      patientName: patientName,
+      doctorName: doctorName,
+      specialty: specialty,
+      date: date,
+      time: time,
+      status: status,
+      notes: notes,
+      avatarColor: const Color(0xFF0066FF),
     );
-    notifyListeners();
+    return _appointmentsRef.add({
+      ...appointment.toMap(),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 
-  void updateAppointmentStatus(String id, AppointmentStatus newStatus) {
-    final idx = _appointments.indexWhere((a) => a.id == id);
-    if (idx != -1) {
-      _appointments[idx].status = newStatus;
-      notifyListeners();
+  CollectionReference<Map<String, dynamic>> get _slotsRef =>
+      _db.collection('slots');
+
+  /// Un horario (doctor + día + hora) solo puede tener una cita activa.
+  static String slotId(String doctorId, DateTime date, String time) {
+    final day = '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+    return '${doctorId}_${day}_${time.replaceAll(' ', '')}';
+  }
+
+  Future<bool> isSlotTaken(String doctorId, DateTime date, String time) async {
+    final doc = await _slotsRef.doc(slotId(doctorId, date, time)).get();
+    return doc.exists;
+  }
+
+  /// El paciente solicita una cita: aparta el horario y crea la cita juntos,
+  /// así dos pacientes no pueden quedarse con el mismo horario. Las reglas de
+  /// Firestore rechazan el apartado si el horario ya existe.
+  Future<void> bookAppointment({
+    required Doctor doctor,
+    required String specialty,
+    required DateTime date,
+    required String time,
+    required String notes,
+  }) async {
+    final userId = uid;
+    if (userId == null) throw StateError('No hay sesión iniciada.');
+    final slot = _slotsRef.doc(slotId(doctor.id, date, time));
+    final appointmentRef = _appointmentsRef.doc();
+    final appointment = Appointment(
+      id: appointmentRef.id,
+      patientId: userId,
+      patientName: patientName,
+      doctorName: doctor.name,
+      specialty: specialty,
+      date: date,
+      time: time,
+      status: AppointmentStatus.pendiente,
+      notes: notes,
+    );
+    final batch = _db.batch()
+      ..set(slot, {
+        'patientId': userId,
+        'appointmentId': appointmentRef.id,
+      })
+      ..set(appointmentRef, {
+        ...appointment.toMap(),
+        'slotId': slot.id,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    await batch.commit();
+  }
+
+  Future<void> updateAppointmentStatus(
+    String id,
+    AppointmentStatus newStatus,
+  ) async {
+    await _appointmentsRef.doc(id).update({'status': newStatus.name});
+    // Una cita cancelada libera su horario para otros pacientes.
+    if (newStatus == AppointmentStatus.cancelada) {
+      final doc = await _appointmentsRef.doc(id).get();
+      final slotId = doc.data()?['slotId'] as String?;
+      if (slotId != null) await _slotsRef.doc(slotId).delete();
     }
   }
 
-  void addPatient({
+  Future<void> addPatient({
     required String name,
     required String phone,
     required String email,
@@ -366,28 +376,22 @@ class AppState extends ChangeNotifier {
       const Color(0xFF6366F1),
       const Color(0xFFEC4899),
     ];
-    _patients.insert(
-      0,
-      Patient(
-        id: 'p_${DateTime.now().millisecondsSinceEpoch}',
-        name: name,
-        phone: phone,
-        email: email,
-        lastVisit: DateTime.now(),
-        treatment: treatment,
-        avatarColor: colors[_patients.length % colors.length],
-      ),
+    final patient = Patient(
+      id: '',
+      name: name,
+      phone: phone,
+      email: email,
+      lastVisit: DateTime.now(),
+      treatment: treatment,
+      avatarColor: colors[_patients.length % colors.length],
     );
-    notifyListeners();
+    return _patientsRef.add(patient.toMap());
   }
 
-  void updateStock(String id, int delta) {
+  Future<void> updateStock(String id, int delta) async {
     final idx = _inventory.indexWhere((item) => item.id == id);
-    if (idx != -1) {
-      final current = _inventory[idx].currentStock;
-      final updated = (current + delta).clamp(0, 9999);
-      _inventory[idx].currentStock = updated;
-      notifyListeners();
-    }
+    if (idx == -1) return;
+    final updated = (_inventory[idx].currentStock + delta).clamp(0, 9999);
+    await _inventoryRef.doc(id).update({'currentStock': updated});
   }
 }

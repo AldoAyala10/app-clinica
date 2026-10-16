@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../../services/auth_service.dart';
 import '../welcome_screen.dart';
 import 'doctor_dashboard_tab.dart';
 import 'doctor_agenda_tab.dart';
@@ -21,25 +23,20 @@ class _DoctorMainScreenState extends State<DoctorMainScreen> {
   @override
   void initState() {
     super.initState();
-    _state = AppState.session;
-    _state.addListener(_onStateChanged);
-  }
-
-  void _onStateChanged() {
-    if (mounted) setState(() {});
+    _state = AppState(role: UserRole.doctor);
+    _state.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
-    _state.removeListener(_onStateChanged);
+    _state.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_state.isLoggedIn || _state.currentRole != UserRole.doctor) {
-      return const WelcomeScreen();
-    }
     final tabs = [
       DoctorDashboardTab(
         state: _state,
@@ -96,12 +93,11 @@ class _DoctorMainScreenState extends State<DoctorMainScreen> {
               size: 20,
             ),
             tooltip: 'Cerrar sesión',
-            onPressed: () {
-              _state.logout();
+            onPressed: () async {
+              await AuthService.instance.signOut();
+              if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (context) => const WelcomeScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const WelcomeScreen()),
                 (route) => false,
               );
             },
@@ -109,10 +105,7 @@ class _DoctorMainScreenState extends State<DoctorMainScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: tabs,
-      ),
+      body: IndexedStack(index: _currentIndex, children: tabs),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,

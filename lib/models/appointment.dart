@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 enum AppointmentStatus {
@@ -48,6 +49,9 @@ enum AppointmentStatus {
 
 class Appointment {
   final String id;
+
+  /// uid de la cuenta del paciente; null si el paciente no tiene cuenta.
+  final String? patientId;
   final String patientName;
   final String doctorName;
   final String specialty;
@@ -59,6 +63,7 @@ class Appointment {
 
   Appointment({
     required this.id,
+    this.patientId,
     required this.patientName,
     required this.doctorName,
     required this.specialty,
@@ -68,4 +73,34 @@ class Appointment {
     this.notes = '',
     this.avatarColor = const Color(0xFF0066FF),
   });
+
+  factory Appointment.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return Appointment(
+      id: doc.id,
+      patientId: d['patientId'] as String?,
+      patientName: d['patientName'] ?? '',
+      doctorName: d['doctorName'] ?? '',
+      specialty: d['specialty'] ?? '',
+      date: (d['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      time: d['time'] ?? '',
+      status:
+          AppointmentStatus.values.asNameMap()[d['status']] ??
+          AppointmentStatus.pendiente,
+      notes: d['notes'] ?? '',
+      avatarColor: Color(d['avatarColor'] ?? 0xFF0066FF),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'patientId': patientId,
+    'patientName': patientName,
+    'doctorName': doctorName,
+    'specialty': specialty,
+    'date': Timestamp.fromDate(date),
+    'time': time,
+    'status': status.name,
+    'notes': notes,
+    'avatarColor': avatarColor.toARGB32(),
+  };
 }
