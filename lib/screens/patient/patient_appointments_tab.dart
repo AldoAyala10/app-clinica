@@ -3,38 +3,48 @@ import '../../theme/app_theme.dart';
 import '../../models/appointment.dart';
 import '../../state/app_state.dart';
 import '../../widgets/appointment_card.dart';
+import '../../widgets/patient_dashboard_feedback.dart';
+import '../../widgets/patient_appointments_loading.dart';
 
-class PatientAppointmentsTab extends StatefulWidget {
+class PatientAppointmentsTab extends PatientAppointmentsScreen {
+  @override
   final AppState state;
   final VoidCallback onBookNew;
+  @override
+  final PatientAppointmentsLoader? appointmentLoader;
 
   const PatientAppointmentsTab({
     super.key,
     required this.state,
     required this.onBookNew,
+    this.appointmentLoader,
   });
 
   @override
   State<PatientAppointmentsTab> createState() => _PatientAppointmentsTabState();
 }
 
-class _PatientAppointmentsTabState extends State<PatientAppointmentsTab> {
+class _PatientAppointmentsTabState extends State<PatientAppointmentsTab>
+    with PatientAppointmentsLoading<PatientAppointmentsTab> {
   int _selectedTabIndex = 0; // 0: Próximas, 1: Historial
-
   @override
   Widget build(BuildContext context) {
     // AppState ya trae solo las citas de este paciente (por uid).
-    final patientAppointments = widget.state.appointments;
-
-    final upcoming = widget.state.upcomingPatientAppointments;
-
+    final patientAppointments = appointmentSource;
+    final today = DateUtils.dateOnly(DateTime.now());
+    final upcoming = patientAppointments
+        .where((a) =>
+            !a.date.isBefore(today) &&
+            (a.status == AppointmentStatus.confirmada ||
+                a.status == AppointmentStatus.pendiente))
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
     final past = patientAppointments
         .where((a) =>
             a.status == AppointmentStatus.completada ||
             a.status == AppointmentStatus.cancelada ||
-            a.date.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)))
+            a.date.isBefore(today))
         .toList();
-
     final activeList = _selectedTabIndex == 0 ? upcoming : past;
 
     return Scaffold(
@@ -178,43 +188,55 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab> {
               ),
               const SizedBox(height: 18),
 
-              // Citas List
+              // Estado de la lista: cargando, error, vacío o resultados.
               Expanded(
-                child: activeList.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.event_busy_rounded,
-                              size: 52,
-                              color: Colors.grey.shade300,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              _selectedTabIndex == 0
-                                  ? 'No tienes citas próximas agendadas'
-                                  : 'No hay citas en tu historial',
-                              style: const TextStyle(
-                                color: AppTheme.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                child: patientStatus == PatientViewStatus.loading
+                    ? const Center(
+                        child: PatientDashboardFeedback(
+                          key: Key('patient_appointments_loading'),
+                          loading: true,
+                          title: 'Cargando tus citas',
+                          message: 'Un momento, estamos preparando tu agenda.',
                         ),
                       )
-                    : ListView.builder(
-                        itemCount: activeList.length,
-                        itemBuilder: (context, index) {
-                          final appointment = activeList[index];
-                          return AppointmentCard(
-                            appointment: appointment,
-                            isDoctorView: false,
-                            onTap: () =>
-                                _showAppointmentDetails(context, appointment),
-                          );
-                        },
-                      ),
+                    : patientStatus == PatientViewStatus.error
+                        ? Center(
+                            child: PatientDashboardFeedback(
+                              key: const Key('patient_appointments_error'),
+                              icon: Icons.cloud_off_rounded,
+                              title: 'No pudimos obtener tus citas',
+                              message: 'No se pudo consultar tu agenda. Inténtalo otra vez.',
+                              actionText: 'Reintentar',
+                              onAction: refreshAppointments,
+                            ),
+                          )
+                        : activeList.isEmpty
+                            ? Center(
+                                child: PatientDashboardFeedback(
+                                  key: const Key('patient_appointments_empty'),
+                                  icon: Icons.event_available_rounded,
+                                  title: _selectedTabIndex == 0
+                                      ? 'No tienes citas próximas agendadas'
+                                      : 'No hay citas en tu historial',
+                                  message: _selectedTabIndex == 0
+                                      ? 'Agenda una consulta para empezar.'
+                                      : 'Tus citas completadas aparecerán aquí.',
+                                  actionText: 'Agendar cita',
+                                  onAction: widget.onBookNew,
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: activeList.length,
+                                itemBuilder: (context, index) {
+                                  final appointment = activeList[index];
+                                  return AppointmentCard(
+                                    appointment: appointment,
+                                    isDoctorView: false,
+                                    onTap: () => _showAppointmentDetails(
+                                        context, appointment),
+                                  );
+                                },
+                              ),
               ),
             ],
           ),

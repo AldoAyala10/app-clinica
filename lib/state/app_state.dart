@@ -117,16 +117,7 @@ class AppState extends ChangeNotifier {
       }, onError: _onError),
     );
 
-    final appointmentsQuery = _currentRole == UserRole.doctor
-        ? _appointmentsRef
-        : _appointmentsRef.where('patientId', isEqualTo: userId);
-    _subs.add(
-      appointmentsQuery.snapshots().listen((snap) {
-        _appointments = snap.docs.map(Appointment.fromDoc).toList()
-          ..sort((a, b) => a.date.compareTo(b.date));
-        notifyListeners();
-      }, onError: _onError),
-    );
+    _listenAppointments();
 
     if (_currentRole != UserRole.doctor) return;
 
@@ -148,6 +139,44 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }, onError: _onError),
     );
+  }
+
+  StreamSubscription? _appointmentsSub;
+
+  /// Falso hasta que llega la primera respuesta de Firestore con las citas.
+  bool appointmentsLoaded = false;
+
+  /// Error al leer las citas; se limpia al reintentar.
+  Object? appointmentsError;
+
+  void _listenAppointments() {
+    final userId = uid;
+    if (userId == null) return;
+    final query = _currentRole == UserRole.doctor
+        ? _appointmentsRef
+        : _appointmentsRef.where('patientId', isEqualTo: userId);
+    _appointmentsSub = query.snapshots().listen(
+      (snap) {
+        _appointments = snap.docs.map(Appointment.fromDoc).toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
+        appointmentsLoaded = true;
+        appointmentsError = null;
+        notifyListeners();
+      },
+      onError: (Object error) {
+        appointmentsError = error;
+        _onError(error);
+      },
+    );
+  }
+
+  /// Vuelve a suscribirse a las citas después de un error.
+  Future<void> retryAppointments() async {
+    await _appointmentsSub?.cancel();
+    appointmentsLoaded = false;
+    appointmentsError = null;
+    notifyListeners();
+    _listenAppointments();
   }
 
   void _onError(Object error) {
@@ -236,6 +265,7 @@ class AppState extends ChangeNotifier {
     for (final sub in _subs) {
       sub.cancel();
     }
+    _appointmentsSub?.cancel();
     super.dispose();
   }
 
@@ -246,6 +276,7 @@ class AppState extends ChangeNotifier {
     required String specialty,
     required DateTime date,
     required String time,
+    String notes = '',
     AppointmentStatus status = AppointmentStatus.pendiente,
   }) {
     final appointment = Appointment(
@@ -257,6 +288,7 @@ class AppState extends ChangeNotifier {
       date: date,
       time: time,
       status: status,
+      notes: notes,
       avatarColor: const Color(0xFF0066FF),
     );
     return _appointmentsRef.add({
@@ -265,8 +297,70 @@ class AppState extends ChangeNotifier {
     });
   }
 
-  Future<void> updateAppointmentStatus(String id, AppointmentStatus newStatus) {
-    return _appointmentsRef.doc(id).update({'status': newStatus.name});
+  CollectionReference<Map<String, dynamic>> get _slotsRef =>
+      _db.collection('slots');
+
+  /// Un horario (doctor + día + hora) solo puede tener una cita activa.
+  static String slotId(String doctorId, DateTime date, String time) {
+    final day = '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+    return '${doctorId}_${day}_${time.replaceAll(' ', '')}';
+  }
+
+  Future<bool> isSlotTaken(String doctorId, DateTime date, String time) async {
+    final doc = await _slotsRef.doc(slotId(doctorId, date, time)).get();
+    return doc.exists;
+  }
+
+  /// El paciente solicita una cita: aparta el horario y crea la cita juntos,
+  /// así dos pacientes no pueden quedarse con el mismo horario. Las reglas de
+  /// Firestore rechazan el apartado si el horario ya existe.
+  Future<void> bookAppointment({
+    required Doctor doctor,
+    required String specialty,
+    required DateTime date,
+    required String time,
+    required String notes,
+  }) async {
+    final userId = uid;
+    if (userId == null) throw StateError('No hay sesión iniciada.');
+    final slot = _slotsRef.doc(slotId(doctor.id, date, time));
+    final appointmentRef = _appointmentsRef.doc();
+    final appointment = Appointment(
+      id: appointmentRef.id,
+      patientId: userId,
+      patientName: patientName,
+      doctorName: doctor.name,
+      specialty: specialty,
+      date: date,
+      time: time,
+      status: AppointmentStatus.pendiente,
+      notes: notes,
+    );
+    final batch = _db.batch()
+      ..set(slot, {
+        'patientId': userId,
+        'appointmentId': appointmentRef.id,
+      })
+      ..set(appointmentRef, {
+        ...appointment.toMap(),
+        'slotId': slot.id,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    await batch.commit();
+  }
+
+  Future<void> updateAppointmentStatus(
+    String id,
+    AppointmentStatus newStatus,
+  ) async {
+    await _appointmentsRef.doc(id).update({'status': newStatus.name});
+    // Una cita cancelada libera su horario para otros pacientes.
+    if (newStatus == AppointmentStatus.cancelada) {
+      final doc = await _appointmentsRef.doc(id).get();
+      final slotId = doc.data()?['slotId'] as String?;
+      if (slotId != null) await _slotsRef.doc(slotId).delete();
+    }
   }
 
   Future<void> addPatient({

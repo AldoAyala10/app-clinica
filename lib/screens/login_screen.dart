@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -11,8 +13,17 @@ import 'register_screen.dart';
 import 'doctor/doctor_main_screen.dart';
 import 'patient/patient_main_screen.dart';
 
+/// Inicia sesión y devuelve el rol de la cuenta. Lanza [AuthException] con
+/// un mensaje para el usuario si falla. Se inyecta en pruebas.
+typedef LoginAuthenticator = Future<UserRole> Function(
+  String email,
+  String password,
+);
+
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.authenticate});
+
+  final LoginAuthenticator? authenticate;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -44,9 +55,20 @@ class _LoginScreenState extends State<LoginScreen> {
     return emailRegex.hasMatch(trimmedEmail);
   }
 
+  Future<UserRole> _signIn(String email, String password) {
+    final authenticate = widget.authenticate;
+    if (authenticate != null) return authenticate(email, password);
+    return AuthService.instance
+        .signIn(email: email, password: password)
+        .timeout(const Duration(seconds: 20));
+  }
+
   Future<void> _handleLogin() async {
+    // Protege contra pulsaciones repetidas antes del siguiente frame.
+    if (_isLoading) return;
     final email = _emailController.text;
     final password = _passwordController.text;
+    final selectedRole = _selectedRole;
     final errors = <String>[];
 
     if (!_isValidEmail(email)) {
@@ -68,21 +90,23 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     final UserRole role;
     try {
-      role = await AuthService.instance.signIn(
-        email: email,
-        password: password,
-      );
-    } on AuthException catch (e) {
+      role = await _signIn(email, password);
+    } catch (e) {
+      final message = switch (e) {
+        AuthException(:final message) => message,
+        TimeoutException() => 'La conexión tardó demasiado. Intenta de nuevo.',
+        _ => 'Ocurrió un error inesperado al iniciar sesión. Intenta de nuevo.',
+      };
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _validationErrors = [e.message];
+          _validationErrors = [message];
         });
       }
       return;
     }
 
-    if (role != _selectedRole) {
+    if (role != selectedRole) {
       await AuthService.instance.signOut();
       if (mounted) {
         setState(() {
@@ -201,8 +225,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
+                                if (_isLoading) return;
                                 setState(() {
                                   _selectedRole = UserRole.doctor;
+                                  _validationErrors = const [];
                                 });
                               },
                               child: Container(
@@ -247,8 +273,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
+                                if (_isLoading) return;
                                 setState(() {
                                   _selectedRole = UserRole.patient;
+                                  _validationErrors = const [];
                                 });
                               },
                               child: Container(
@@ -370,7 +398,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Submit Button
                     CustomButton(
                       text: 'Iniciar Sesión',
-                      onPressed: _handleLogin,
+                      onPressed: _isLoading ? null : _handleLogin,
                       isLoading: _isLoading,
                     ),
                   ],
@@ -393,6 +421,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   GestureDetector(
                     onTap: () {
+                      if (_isLoading) return;
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => const RegisterScreen(),

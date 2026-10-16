@@ -46,6 +46,17 @@ service cloud.firestore {
       allow delete: if isDoctor();
     }
 
+    // Horarios apartados (doctor + día + hora). Como no se permite "update",
+    // un horario existente no se puede volver a apartar: el segundo paciente
+    // recibe permission-denied. Se borra al cancelar la cita.
+    match /slots/{slotId} {
+      allow get: if signedIn();
+      allow create: if isDoctor()
+                    || (signedIn() && request.resource.data.patientId == request.auth.uid);
+      allow delete: if isDoctor()
+                    || (signedIn() && resource.data.patientId == request.auth.uid);
+    }
+
     // Inventario: solo doctores.
     match /inventory/{id} {
       allow read, write: if isDoctor();

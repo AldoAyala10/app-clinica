@@ -1,6 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
-import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -15,54 +12,7 @@ import 'package:app_clinica/services/auth_service.dart';
 import 'package:app_clinica/state/app_state.dart';
 import 'package:app_clinica/widgets/custom_button.dart';
 
-const _doctorUid = 'doctor-1';
-const _patientUid = 'paciente-1';
-
-late FakeFirebaseFirestore db;
-
-/// Reemplaza Firebase por versiones en memoria. Si [signedInUid] no es null,
-/// arranca con esa sesión abierta.
-Future<MockFirebaseAuth> _setUpFirebase({String? signedInUid}) async {
-  db = FakeFirebaseFirestore();
-  await db.collection('users').doc(_doctorUid).set({
-    'name': 'Dr. Carlos Sandoval',
-    'email': 'doctor@test.com',
-    'role': 'doctor',
-  });
-  await db.collection('users').doc(_patientUid).set({
-    'name': 'María Moreno',
-    'email': 'paciente@test.com',
-    'phone': '4420000000',
-    'role': 'patient',
-  });
-
-  final auth = MockFirebaseAuth(
-    signedIn: signedInUid != null,
-    mockUser: MockUser(
-      uid: signedInUid ?? _patientUid,
-      email: signedInUid == _doctorUid ? 'doctor@test.com' : 'paciente@test.com',
-    ),
-  );
-  AuthService.instance = AuthService(auth: auth, db: db);
-  return auth;
-}
-
-Future<void> _addAppointment({
-  required String patientId,
-  required String patientName,
-  required DateTime date,
-  AppointmentStatus status = AppointmentStatus.confirmada,
-}) {
-  return db.collection('appointments').add({
-    'patientId': patientId,
-    'patientName': patientName,
-    'doctorName': 'Dra. Sofía Vega',
-    'specialty': 'Limpieza Dental',
-    'date': Timestamp.fromDate(date),
-    'time': '10:00 AM',
-    'status': status.name,
-  });
-}
+import 'helpers/firebase_fakes.dart';
 
 Future<void> _submit(WidgetTester tester) async {
   await tester.ensureVisible(find.byType(CustomButton).first);
@@ -74,7 +24,7 @@ void main() {
   setUpAll(() => initializeDateFormatting('es'));
 
   testWidgets('WelcomeScreen navega a LoginScreen', (tester) async {
-    await _setUpFirebase();
+    await setUpFirebase();
     await tester.pumpWidget(const MaterialApp(home: WelcomeScreen()));
     await tester.pumpAndSettle();
 
@@ -90,7 +40,7 @@ void main() {
   });
 
   testWidgets('LoginScreen valida correo y contraseña', (tester) async {
-    await _setUpFirebase();
+    await setUpFirebase();
     await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
     await tester.pumpAndSettle();
 
@@ -104,7 +54,7 @@ void main() {
   });
 
   testWidgets('RegisterScreen valida correo y contraseña', (tester) async {
-    await _setUpFirebase();
+    await setUpFirebase();
     await tester.pumpWidget(const MaterialApp(home: RegisterScreen()));
     await tester.pumpAndSettle();
 
@@ -121,7 +71,7 @@ void main() {
 
   testWidgets('Login rechaza rol cruzado y entra con el rol correcto',
       (tester) async {
-    final auth = await _setUpFirebase();
+    final auth = await setUpFirebase();
     await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
     await tester.pumpAndSettle();
 
@@ -144,7 +94,7 @@ void main() {
   });
 
   test('Registro crea perfil y ficha de paciente en Firestore', () async {
-    await _setUpFirebase();
+    await setUpFirebase();
     await AuthService.instance.register(
       name: 'Laura Fuentes',
       email: 'laura@test.com',
@@ -163,23 +113,23 @@ void main() {
 
   testWidgets('El paciente solo ve sus próximas citas, ordenadas',
       (tester) async {
-    await _setUpFirebase(signedInUid: _patientUid);
+    await setUpFirebase(signedInUid: patientUid);
     final now = DateTime.now();
-    await _addAppointment(
-        patientId: _patientUid,
+    await addAppointment(
+        patientId: patientUid,
         patientName: 'María Moreno',
         date: now.add(const Duration(days: 12)));
-    await _addAppointment(
-        patientId: _patientUid,
+    await addAppointment(
+        patientId: patientUid,
         patientName: 'María Moreno',
         date: now.add(const Duration(days: 3)),
         status: AppointmentStatus.pendiente);
-    await _addAppointment(
-        patientId: _patientUid,
+    await addAppointment(
+        patientId: patientUid,
         patientName: 'María Moreno',
         date: now.subtract(const Duration(days: 30)),
         status: AppointmentStatus.completada);
-    await _addAppointment(
+    await addAppointment(
         patientId: 'otro-paciente',
         patientName: 'María Moreno',
         date: now.add(const Duration(days: 1)));
@@ -196,7 +146,7 @@ void main() {
 
   testWidgets('DoctorMainScreen muestra el panel con datos del doctor',
       (tester) async {
-    await _setUpFirebase(signedInUid: _doctorUid);
+    await setUpFirebase(signedInUid: doctorUid);
     await tester.pumpWidget(const MaterialApp(home: DoctorMainScreen()));
     await tester.pumpAndSettle();
 
@@ -208,7 +158,7 @@ void main() {
   });
 
   testWidgets('Cerrar sesión regresa a la bienvenida', (tester) async {
-    final auth = await _setUpFirebase(signedInUid: _doctorUid);
+    final auth = await setUpFirebase(signedInUid: doctorUid);
     await tester.pumpWidget(const MaterialApp(home: DoctorMainScreen()));
     await tester.pumpAndSettle();
 
@@ -221,7 +171,7 @@ void main() {
   });
 
   testWidgets('AuthGate sin sesión muestra la bienvenida', (tester) async {
-    await _setUpFirebase();
+    await setUpFirebase();
     await tester.pumpWidget(const MaterialApp(home: AuthGate()));
     await tester.pumpAndSettle();
 
@@ -230,7 +180,7 @@ void main() {
   });
 
   testWidgets('AuthGate con sesión de doctor abre su panel', (tester) async {
-    await _setUpFirebase(signedInUid: _doctorUid);
+    await setUpFirebase(signedInUid: doctorUid);
     await tester.pumpWidget(const MaterialApp(home: AuthGate()));
     await tester.pumpAndSettle();
 
