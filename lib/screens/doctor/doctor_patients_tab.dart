@@ -14,7 +14,9 @@ class DoctorPatientsTab extends StatefulWidget {
 }
 
 class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
+  static const _pageSize = 8;
   String _searchQuery = '';
+  int _page = 0;
   final _searchController = TextEditingController();
 
   @override
@@ -26,9 +28,18 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
   @override
   Widget build(BuildContext context) {
     final filtered = widget.state.patients.where((p) {
-      return p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          p.treatment.toLowerCase().contains(_searchQuery.toLowerCase());
+      final query = _searchQuery.trim().toLowerCase();
+      return p.name.toLowerCase().contains(query) ||
+        p.email.toLowerCase().contains(query);
     }).toList();
+    final pageCount = filtered.isEmpty
+      ? 1
+      : (filtered.length + _pageSize - 1) ~/ _pageSize;
+    final currentPage = _page.clamp(0, pageCount - 1);
+    final pageItems = filtered
+      .skip(currentPage * _pageSize)
+      .take(_pageSize)
+      .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFD),
@@ -87,17 +98,32 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
                 ),
                 child: TextField(
                   controller: _searchController,
+                  key: const Key('patient_search'),
                   onChanged: (val) {
                     setState(() {
                       _searchQuery = val;
+                      _page = 0;
                     });
                   },
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Buscar paciente...',
                     prefixIcon: Icon(
                       Icons.search_rounded,
                       color: AppTheme.textMuted,
                     ),
+                    suffixIcon: _searchQuery.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Limpiar búsqueda',
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchQuery = '';
+                                _page = 0;
+                              });
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
@@ -158,9 +184,9 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
                         ),
                       )
                     : ListView.builder(
-                        itemCount: filtered.length,
+                        itemCount: pageItems.length,
                         itemBuilder: (context, index) {
-                          final patient = filtered[index];
+                          final patient = pageItems[index];
                           return PatientCard(
                             patient: patient,
                             onTap: () => _showPatientDetailModal(context, patient),
@@ -168,6 +194,36 @@ class _DoctorPatientsTabState extends State<DoctorPatientsTab> {
                         },
                       ),
               ),
+              if (filtered.length > _pageSize)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      key: const Key('patients_page_previous'),
+                      onPressed: currentPage == 0
+                          ? null
+                          : () => setState(() => _page = currentPage - 1),
+                      icon: const Icon(Icons.chevron_left_rounded),
+                      label: const Text('Anterior'),
+                    ),
+                    Text(
+                      '${currentPage + 1} de $pageCount',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textMuted,
+                      ),
+                    ),
+                    TextButton.icon(
+                      key: const Key('patients_page_next'),
+                      onPressed: currentPage + 1 >= pageCount
+                          ? null
+                          : () => setState(() => _page = currentPage + 1),
+                      icon: const Icon(Icons.chevron_right_rounded),
+                      label: const Text('Siguiente'),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

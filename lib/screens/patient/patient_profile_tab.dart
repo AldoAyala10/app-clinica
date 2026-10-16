@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../models/appointment.dart';
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/appointment_card.dart';
 import '../welcome_screen.dart';
 
 class PatientProfileTab extends StatelessWidget {
@@ -125,7 +127,7 @@ class PatientProfileTab extends StatelessWidget {
                       _buildMenuItem(
                         icon: Icons.history_edu_rounded,
                         title: 'Historial clínico dental',
-                        onTap: () {},
+                        onTap: () => _showPatientHistory(context),
                       ),
                       _buildDivider(),
                       _buildMenuItem(
@@ -260,6 +262,63 @@ class PatientProfileTab extends StatelessWidget {
       indent: 64,
       endIndent: 16,
       color: Colors.grey.shade100,
+    );
+  }
+
+  void _showPatientHistory(BuildContext context) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final history = state.appointments
+        .where((appointment) =>
+            appointment.status != AppointmentStatus.cancelada &&
+            (appointment.status == AppointmentStatus.completada ||
+                appointment.date.isBefore(today)))
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.72,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Historial clínico dental',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: history.isEmpty
+                      ? const Center(child: Text('Aún no tienes citas pasadas.'))
+                      : ListView.builder(
+                          itemCount: history.length,
+                          itemBuilder: (context, index) {
+                            final appointment = history[index].copyWith(
+                              status: AppointmentStatus.completada,
+                            );
+                            return AppointmentCard(
+                              appointment: appointment,
+                              isDoctorView: false,
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/appointment.dart';
@@ -8,6 +7,7 @@ import '../models/patient.dart';
 import '../models/doctor.dart';
 import '../models/inventory_item.dart';
 import '../services/auth_service.dart';
+import '../repositories/firebase_clinic_repository.dart';
 
 enum UserRole { doctor, patient }
 
@@ -18,15 +18,9 @@ class AppState extends ChangeNotifier {
     _listen();
   }
 
-  final FirebaseFirestore _db = AuthService.instance.db;
+    late final FirebaseClinicRepository _repository =
+      FirebaseClinicRepository(AuthService.instance.db);
   final List<StreamSubscription> _subs = [];
-
-  CollectionReference<Map<String, dynamic>> get _appointmentsRef =>
-      _db.collection('appointments');
-  CollectionReference<Map<String, dynamic>> get _patientsRef =>
-      _db.collection('patients');
-  CollectionReference<Map<String, dynamic>> get _inventoryRef =>
-      _db.collection('inventory');
 
   final UserRole _currentRole;
   UserRole get currentRole => _currentRole;
@@ -103,7 +97,7 @@ class AppState extends ChangeNotifier {
     if (userId == null) return;
 
     _subs.add(
-      _db.collection('users').doc(userId).snapshots().listen((doc) {
+      _repository.watchUser(userId).listen((doc) {
         final d = doc.data();
         if (d == null) return;
         if (_currentRole == UserRole.doctor) {
@@ -122,7 +116,7 @@ class AppState extends ChangeNotifier {
     if (_currentRole != UserRole.doctor) return;
 
     _subs.add(
-      _patientsRef.snapshots().listen((snap) {
+      _repository.watchPatients().listen((snap) {
         _patients = snap.docs.map(Patient.fromDoc).toList()
           ..sort((a, b) => b.lastVisit.compareTo(a.lastVisit));
         notifyListeners();
@@ -130,7 +124,7 @@ class AppState extends ChangeNotifier {
     );
 
     _subs.add(
-      _inventoryRef.snapshots().listen((snap) {
+      _repository.watchInventory().listen((snap) {
         if (snap.docs.isEmpty && !snap.metadata.isFromCache) {
           _seedInventoryIfEmpty();
         }
@@ -152,10 +146,11 @@ class AppState extends ChangeNotifier {
   void _listenAppointments() {
     final userId = uid;
     if (userId == null) return;
-    final query = _currentRole == UserRole.doctor
-        ? _appointmentsRef
-        : _appointmentsRef.where('patientId', isEqualTo: userId);
-    _appointmentsSub = query.snapshots().listen(
+    _appointmentsSub = _repository
+      .watchAppointments(
+        patientId: _currentRole == UserRole.doctor ? null : userId,
+      )
+      .listen(
       (snap) {
         _appointments = snap.docs.map(Appointment.fromDoc).toList()
           ..sort((a, b) => a.date.compareTo(b.date));
@@ -190,11 +185,7 @@ class AppState extends ChangeNotifier {
   Future<void> _seedInventoryIfEmpty() async {
     if (_seedingInventory) return;
     _seedingInventory = true;
-    final batch = _db.batch();
-    for (final item in _seedInventory) {
-      batch.set(_inventoryRef.doc(), item.toMap());
-    }
-    await batch.commit();
+    await _repository.seedInventory(_seedInventory);
   }
 
   static final List<InventoryItem> _seedInventory = [
@@ -279,37 +270,25 @@ class AppState extends ChangeNotifier {
     String notes = '',
     AppointmentStatus status = AppointmentStatus.pendiente,
   }) {
-    final appointment = Appointment(
-      id: '',
+    return _repository.addAppointment(
       patientId: patientId,
       patientName: patientName,
       doctorName: doctorName,
       specialty: specialty,
       date: date,
       time: time,
-      status: status,
       notes: notes,
-      avatarColor: const Color(0xFF0066FF),
+      status: status,
     );
-    return _appointmentsRef.add({
-      ...appointment.toMap(),
-      'createdAt': FieldValue.serverTimestamp(),
-    });
   }
-
-  CollectionReference<Map<String, dynamic>> get _slotsRef =>
-      _db.collection('slots');
 
   /// Un horario (doctor + día + hora) solo puede tener una cita activa.
   static String slotId(String doctorId, DateTime date, String time) {
-    final day = '${date.year}-${date.month.toString().padLeft(2, '0')}-'
-        '${date.day.toString().padLeft(2, '0')}';
-    return '${doctorId}_${day}_${time.replaceAll(' ', '')}';
+    return FirebaseClinicRepository.slotId(doctorId, date, time);
   }
 
   Future<bool> isSlotTaken(String doctorId, DateTime date, String time) async {
-    final doc = await _slotsRef.doc(slotId(doctorId, date, time)).get();
-    return doc.exists;
+    return _repository.isSlotTaken(doctorId, date, time);
   }
 
   /// El paciente solicita una cita: aparta el horario y crea la cita juntos,
@@ -324,44 +303,34 @@ class AppState extends ChangeNotifier {
   }) async {
     final userId = uid;
     if (userId == null) throw StateError('No hay sesión iniciada.');
-    final slot = _slotsRef.doc(slotId(doctor.id, date, time));
-    final appointmentRef = _appointmentsRef.doc();
-    final appointment = Appointment(
-      id: appointmentRef.id,
+    return _repository.bookAppointment(
       patientId: userId,
       patientName: patientName,
-      doctorName: doctor.name,
+      doctor: doctor,
       specialty: specialty,
       date: date,
       time: time,
-      status: AppointmentStatus.pendiente,
       notes: notes,
     );
-    final batch = _db.batch()
-      ..set(slot, {
-        'patientId': userId,
-        'appointmentId': appointmentRef.id,
-      })
-      ..set(appointmentRef, {
-        ...appointment.toMap(),
-        'slotId': slot.id,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    await batch.commit();
   }
 
   Future<void> updateAppointmentStatus(
     String id,
     AppointmentStatus newStatus,
   ) async {
-    await _appointmentsRef.doc(id).update({'status': newStatus.name});
-    // Una cita cancelada libera su horario para otros pacientes.
-    if (newStatus == AppointmentStatus.cancelada) {
-      final doc = await _appointmentsRef.doc(id).get();
-      final slotId = doc.data()?['slotId'] as String?;
-      if (slotId != null) await _slotsRef.doc(slotId).delete();
-    }
+    return _repository.updateAppointmentStatus(id, newStatus);
   }
+
+  Future<void> rescheduleAppointment({
+    required Appointment appointment,
+    required DateTime date,
+    required String time,
+  }) =>
+      _repository.rescheduleAppointment(
+        appointment: appointment,
+        date: date,
+        time: time,
+      );
 
   Future<void> addPatient({
     required String name,
@@ -385,13 +354,13 @@ class AppState extends ChangeNotifier {
       treatment: treatment,
       avatarColor: colors[_patients.length % colors.length],
     );
-    return _patientsRef.add(patient.toMap());
+    return _repository.addPatient(patient);
   }
 
   Future<void> updateStock(String id, int delta) async {
     final idx = _inventory.indexWhere((item) => item.id == id);
     if (idx == -1) return;
     final updated = (_inventory[idx].currentStock + delta).clamp(0, 9999);
-    await _inventoryRef.doc(id).update({'currentStock': updated});
+    await _repository.updateStock(id, updated);
   }
 }

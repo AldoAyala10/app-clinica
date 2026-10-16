@@ -52,6 +52,7 @@ class Appointment {
 
   /// uid de la cuenta del paciente; null si el paciente no tiene cuenta.
   final String? patientId;
+  final String? doctorId;
   final String patientName;
   final String doctorName;
   final String specialty;
@@ -64,6 +65,7 @@ class Appointment {
   Appointment({
     required this.id,
     this.patientId,
+    this.doctorId,
     required this.patientName,
     required this.doctorName,
     required this.specialty,
@@ -74,11 +76,26 @@ class Appointment {
     this.avatarColor = const Color(0xFF0066FF),
   });
 
+  Appointment copyWith({AppointmentStatus? status}) => Appointment(
+    id: id,
+    patientId: patientId,
+    doctorId: doctorId,
+    patientName: patientName,
+    doctorName: doctorName,
+    specialty: specialty,
+    date: date,
+    time: time,
+    status: status ?? this.status,
+    notes: notes,
+    avatarColor: avatarColor,
+  );
+
   factory Appointment.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
     return Appointment(
       id: doc.id,
       patientId: d['patientId'] as String?,
+      doctorId: d['doctorId'] as String?,
       patientName: d['patientName'] ?? '',
       doctorName: d['doctorName'] ?? '',
       specialty: d['specialty'] ?? '',
@@ -94,6 +111,7 @@ class Appointment {
 
   Map<String, dynamic> toMap() => {
     'patientId': patientId,
+    'doctorId': doctorId,
     'patientName': patientName,
     'doctorName': doctorName,
     'specialty': specialty,

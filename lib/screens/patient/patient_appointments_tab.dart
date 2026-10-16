@@ -41,9 +41,9 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab>
       ..sort((a, b) => a.date.compareTo(b.date));
     final past = patientAppointments
         .where((a) =>
-            a.status == AppointmentStatus.completada ||
-            a.status == AppointmentStatus.cancelada ||
-            a.date.isBefore(today))
+        a.status != AppointmentStatus.cancelada &&
+        (a.status == AppointmentStatus.completada ||
+          a.date.isBefore(today)))
         .toList();
     final activeList = _selectedTabIndex == 0 ? upcoming : past;
 
@@ -228,7 +228,14 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab>
                             : ListView.builder(
                                 itemCount: activeList.length,
                                 itemBuilder: (context, index) {
-                                  final appointment = activeList[index];
+                                  final source = activeList[index];
+                                  final appointment = _selectedTabIndex == 1 &&
+                                          source.status !=
+                                              AppointmentStatus.completada
+                                      ? source.copyWith(
+                                          status: AppointmentStatus.completada,
+                                        )
+                                      : source;
                                   return AppointmentCard(
                                     appointment: appointment,
                                     isDoctorView: false,
@@ -246,6 +253,10 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab>
   }
 
   void _showAppointmentDetails(BuildContext context, Appointment app) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final canModify = !app.date.isBefore(today) &&
+      (app.status == AppointmentStatus.confirmada ||
+        app.status == AppointmentStatus.pendiente);
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -330,49 +341,123 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab>
                 ),
               ],
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        widget.state.updateAppointmentStatus(
-                          app.id,
-                          AppointmentStatus.cancelada,
-                        );
-                        Navigator.pop(context);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.errorRed,
-                        side: const BorderSide(color: AppTheme.errorRed),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+              if (canModify) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _rescheduleAppointment(app);
+                        },
+                        icon: const Icon(Icons.edit_calendar_outlined),
+                        label: const Text('Reprogramar'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _cancelAppointment(app);
+                        },
+                        icon: const Icon(Icons.event_busy_outlined),
+                        label: const Text('Cancelar'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.errorRed,
+                          side: const BorderSide(color: AppTheme.errorRed),
                         ),
                       ),
-                      child: const Text('Cancelar Cita'),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryBlue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: const Text('Cerrar'),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cerrar'),
+                ),
               ),
             ],
           ),
         );
       },
     );
+  }
+
+  Future<void> _cancelAppointment(Appointment appointment) async {
+    try {
+      await widget.state.updateAppointmentStatus(
+        appointment.id,
+        AppointmentStatus.cancelada,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('La cita se canceló correctamente.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo cancelar la cita. Intenta de nuevo.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _rescheduleAppointment(Appointment appointment) async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final date = await showDatePicker(
+      context: context,
+      initialDate: today.add(const Duration(days: 1)),
+      firstDate: today.add(const Duration(days: 1)),
+      lastDate: today.add(const Duration(days: 180)),
+      helpText: 'Selecciona una nueva fecha',
+    );
+    if (date == null || !mounted) return;
+
+    const times = [
+      '09:00 AM',
+      '10:30 AM',
+      '12:00 PM',
+      '03:00 PM',
+      '04:30 PM',
+      '06:00 PM',
+    ];
+    final time = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Selecciona un horario'),
+        children: times
+            .map((value) => SimpleDialogOption(
+                  onPressed: () => Navigator.pop(dialogContext, value),
+                  child: Text(value),
+                ))
+            .toList(),
+      ),
+    );
+    if (time == null || !mounted) return;
+
+    try {
+      await widget.state.rescheduleAppointment(
+        appointment: appointment,
+        date: date,
+        time: time,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('La cita se reprogramó correctamente.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is StateError
+          ? error.message.toString()
+          : 'No se pudo reprogramar la cita. Intenta de nuevo.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 }
