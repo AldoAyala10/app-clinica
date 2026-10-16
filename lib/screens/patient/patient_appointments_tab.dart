@@ -26,16 +26,13 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab> {
     // AppState ya trae solo las citas de este paciente (por uid).
     final patientAppointments = widget.state.appointments;
 
-    final upcoming = patientAppointments
-        .where((a) =>
-            a.status == AppointmentStatus.confirmada ||
-            a.status == AppointmentStatus.pendiente)
-        .toList();
+    final upcoming = widget.state.upcomingPatientAppointments;
 
     final past = patientAppointments
         .where((a) =>
             a.status == AppointmentStatus.completada ||
-            a.status == AppointmentStatus.cancelada)
+            a.status == AppointmentStatus.cancelada ||
+            a.date.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)))
         .toList();
 
     final activeList = _selectedTabIndex == 0 ? upcoming : past;

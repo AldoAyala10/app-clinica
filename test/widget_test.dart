@@ -1,25 +1,86 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:app_clinica/main.dart';
+import 'package:app_clinica/models/appointment.dart';
 import 'package:app_clinica/screens/welcome_screen.dart';
 import 'package:app_clinica/screens/login_screen.dart';
 import 'package:app_clinica/screens/register_screen.dart';
 import 'package:app_clinica/screens/doctor/doctor_main_screen.dart';
 import 'package:app_clinica/screens/patient/patient_main_screen.dart';
+import 'package:app_clinica/services/auth_service.dart';
+import 'package:app_clinica/state/app_state.dart';
 import 'package:app_clinica/widgets/custom_button.dart';
 
+const _doctorUid = 'doctor-1';
+const _patientUid = 'paciente-1';
+
+late FakeFirebaseFirestore db;
+
+/// Reemplaza Firebase por versiones en memoria. Si [signedInUid] no es null,
+/// arranca con esa sesión abierta.
+Future<MockFirebaseAuth> _setUpFirebase({String? signedInUid}) async {
+  db = FakeFirebaseFirestore();
+  await db.collection('users').doc(_doctorUid).set({
+    'name': 'Dr. Carlos Sandoval',
+    'email': 'doctor@test.com',
+    'role': 'doctor',
+  });
+  await db.collection('users').doc(_patientUid).set({
+    'name': 'María Moreno',
+    'email': 'paciente@test.com',
+    'phone': '4420000000',
+    'role': 'patient',
+  });
+
+  final auth = MockFirebaseAuth(
+    signedIn: signedInUid != null,
+    mockUser: MockUser(
+      uid: signedInUid ?? _patientUid,
+      email: signedInUid == _doctorUid ? 'doctor@test.com' : 'paciente@test.com',
+    ),
+  );
+  AuthService.instance = AuthService(auth: auth, db: db);
+  return auth;
+}
+
+Future<void> _addAppointment({
+  required String patientId,
+  required String patientName,
+  required DateTime date,
+  AppointmentStatus status = AppointmentStatus.confirmada,
+}) {
+  return db.collection('appointments').add({
+    'patientId': patientId,
+    'patientName': patientName,
+    'doctorName': 'Dra. Sofía Vega',
+    'specialty': 'Limpieza Dental',
+    'date': Timestamp.fromDate(date),
+    'time': '10:00 AM',
+    'status': status.name,
+  });
+}
+
+Future<void> _submit(WidgetTester tester) async {
+  await tester.ensureVisible(find.byType(CustomButton).first);
+  await tester.tap(find.byType(CustomButton).first);
+  await tester.pumpAndSettle();
+}
+
 void main() {
-  testWidgets(
-      'ClinicaDentalApp launches WelcomeScreen and navigates to LoginScreen',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(const ClinicaDentalApp());
+  setUpAll(() => initializeDateFormatting('es'));
+
+  testWidgets('WelcomeScreen navega a LoginScreen', (tester) async {
+    await _setUpFirebase();
+    await tester.pumpWidget(const MaterialApp(home: WelcomeScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.byType(WelcomeScreen), findsOneWidget);
     expect(find.text('Clínica Dental'), findsOneWidget);
     expect(find.text('Atención Odontológica Especializada'), findsOneWidget);
 
-    // Tap Iniciar Sesión button
     await tester.tap(find.text('Iniciar Sesión'));
     await tester.pumpAndSettle();
 
@@ -28,75 +89,152 @@ void main() {
     expect(find.text('Paciente'), findsOneWidget);
   });
 
-  testWidgets('LoginScreen shows validation error for invalid email or password',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: LoginScreen(),
-      ),
-    );
+  testWidgets('LoginScreen valida correo y contraseña', (tester) async {
+    await _setUpFirebase();
+    await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'correo-invalido');
     await tester.enterText(find.byType(TextFormField).at(1), '123');
-    await tester.ensureVisible(find.byType(CustomButton).first);
-    await tester.tap(find.byType(CustomButton).first);
-    await tester.pumpAndSettle();
+    await _submit(tester);
 
     expect(find.text('Ingresa un correo electrónico válido.'), findsOneWidget);
-    expect(find.text('La contraseña debe tener al menos 6 caracteres.'), findsOneWidget);
+    expect(find.text('La contraseña debe tener al menos 6 caracteres.'),
+        findsOneWidget);
   });
 
-  testWidgets('RegisterScreen shows validation error for invalid email or password',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: RegisterScreen(),
-      ),
-    );
+  testWidgets('RegisterScreen valida correo y contraseña', (tester) async {
+    await _setUpFirebase();
+    await tester.pumpWidget(const MaterialApp(home: RegisterScreen()));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'María Moreno');
     await tester.enterText(find.byType(TextFormField).at(1), 'correo-invalido');
     await tester.enterText(find.byType(TextFormField).at(2), '4420000000');
     await tester.enterText(find.byType(TextFormField).at(3), '123');
-    await tester.ensureVisible(find.byType(CustomButton).first);
-    await tester.tap(find.byType(CustomButton).first);
-    await tester.pumpAndSettle();
+    await _submit(tester);
 
     expect(find.text('Ingresa un correo electrónico válido.'), findsOneWidget);
-    expect(find.text('La contraseña debe tener al menos 6 caracteres.'), findsOneWidget);
+    expect(find.text('La contraseña debe tener al menos 6 caracteres.'),
+        findsOneWidget);
   });
 
-  testWidgets('DoctorMainScreen renders dashboard and navigation tabs',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: DoctorMainScreen(),
-      ),
-    );
+  testWidgets('Login rechaza rol cruzado y entra con el rol correcto',
+      (tester) async {
+    final auth = await _setUpFirebase();
+    await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Dr. Sandoval'), findsOneWidget);
+    // "Doctor" está seleccionado por defecto, pero la cuenta es de paciente.
+    await tester.enterText(
+        find.byType(TextFormField).at(0), 'paciente@test.com');
+    await tester.enterText(find.byType(TextFormField).at(1), 'paciente123');
+    await _submit(tester);
+
+    expect(find.text('Esta cuenta es de paciente. Selecciona "Paciente".'),
+        findsOneWidget);
+    expect(auth.currentUser, isNull);
+
+    await tester.tap(find.text('Paciente').first);
+    await tester.pumpAndSettle();
+    await _submit(tester);
+
+    expect(find.byType(PatientMainScreen), findsOneWidget);
+    expect(find.text('¡Hola, María!'), findsOneWidget);
+  });
+
+  test('Registro crea perfil y ficha de paciente en Firestore', () async {
+    await _setUpFirebase();
+    await AuthService.instance.register(
+      name: 'Laura Fuentes',
+      email: 'laura@test.com',
+      phone: '4421112233',
+      password: 'secreta123',
+    );
+
+    final uid = AuthService.instance.currentUser!.uid;
+    final user = await db.collection('users').doc(uid).get();
+    final patient = await db.collection('patients').doc(uid).get();
+
+    expect(user.data()!['role'], 'patient');
+    expect(patient.data()!['userId'], uid);
+    expect(patient.data()!['name'], 'Laura Fuentes');
+  });
+
+  testWidgets('El paciente solo ve sus próximas citas, ordenadas',
+      (tester) async {
+    await _setUpFirebase(signedInUid: _patientUid);
+    final now = DateTime.now();
+    await _addAppointment(
+        patientId: _patientUid,
+        patientName: 'María Moreno',
+        date: now.add(const Duration(days: 12)));
+    await _addAppointment(
+        patientId: _patientUid,
+        patientName: 'María Moreno',
+        date: now.add(const Duration(days: 3)),
+        status: AppointmentStatus.pendiente);
+    await _addAppointment(
+        patientId: _patientUid,
+        patientName: 'María Moreno',
+        date: now.subtract(const Duration(days: 30)),
+        status: AppointmentStatus.completada);
+    await _addAppointment(
+        patientId: 'otro-paciente',
+        patientName: 'María Moreno',
+        date: now.add(const Duration(days: 1)));
+
+    final state = AppState(role: UserRole.patient);
+    addTearDown(state.dispose);
+    await tester.pumpAndSettle();
+
+    expect(state.appointments.length, 3);
+    final upcoming = state.upcomingPatientAppointments;
+    expect(upcoming.length, 2);
+    expect(upcoming.first.date.isBefore(upcoming.last.date), isTrue);
+  });
+
+  testWidgets('DoctorMainScreen muestra el panel con datos del doctor',
+      (tester) async {
+    await _setUpFirebase(signedInUid: _doctorUid);
+    await tester.pumpWidget(const MaterialApp(home: DoctorMainScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dr. Carlos Sandoval'), findsOneWidget);
     expect(find.text('PRÓXIMA CITA'), findsOneWidget);
-    expect(find.text('Sofía Villanueva'), findsWidgets);
     expect(find.text('Agenda'), findsWidgets);
     expect(find.text('Pacientes'), findsWidgets);
     expect(find.text('Inventario'), findsWidgets);
   });
 
-  testWidgets('PatientMainScreen renders home and booking elements',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: PatientMainScreen(),
-      ),
-    );
+  testWidgets('Cerrar sesión regresa a la bienvenida', (tester) async {
+    final auth = await _setUpFirebase(signedInUid: _doctorUid);
+    await tester.pumpWidget(const MaterialApp(home: DoctorMainScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('¡Hola, María!'), findsOneWidget);
-    expect(find.text('Tu sonrisa es nuestra prioridad'), findsOneWidget);
-    expect(find.text('Dra. Sofía Vega'), findsOneWidget);
-    expect(find.text('Limpieza Dental'), findsWidgets);
+    await tester.tap(find.byTooltip('Cerrar sesión'));
+    await tester.pumpAndSettle();
+
+    expect(auth.currentUser, isNull);
+    expect(find.byType(WelcomeScreen), findsOneWidget);
+    expect(find.byType(DoctorMainScreen), findsNothing);
+  });
+
+  testWidgets('AuthGate sin sesión muestra la bienvenida', (tester) async {
+    await _setUpFirebase();
+    await tester.pumpWidget(const MaterialApp(home: AuthGate()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(WelcomeScreen), findsOneWidget);
+    expect(find.text('Modo Doctor'), findsNothing);
+  });
+
+  testWidgets('AuthGate con sesión de doctor abre su panel', (tester) async {
+    await _setUpFirebase(signedInUid: _doctorUid);
+    await tester.pumpWidget(const MaterialApp(home: AuthGate()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DoctorMainScreen), findsOneWidget);
+    expect(find.text('Modo Doctor'), findsOneWidget);
   });
 }

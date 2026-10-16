@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/appointment.dart';
 import '../models/patient.dart';
 import '../models/doctor.dart';
 import '../models/inventory_item.dart';
+import '../services/auth_service.dart';
 
 enum UserRole { doctor, patient }
 
@@ -18,7 +18,7 @@ class AppState extends ChangeNotifier {
     _listen();
   }
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db = AuthService.instance.db;
   final List<StreamSubscription> _subs = [];
 
   CollectionReference<Map<String, dynamic>> get _appointmentsRef =>
@@ -31,7 +31,7 @@ class AppState extends ChangeNotifier {
   final UserRole _currentRole;
   UserRole get currentRole => _currentRole;
 
-  String? get uid => FirebaseAuth.instance.currentUser?.uid;
+  String? get uid => AuthService.instance.currentUser?.uid;
 
   // Patient Profile Info
   String patientName = '';
@@ -76,6 +76,19 @@ class AppState extends ChangeNotifier {
 
   List<Appointment> _appointments = [];
   List<Appointment> get appointments => _appointments;
+
+  /// Citas confirmadas o pendientes de hoy en adelante, de la más próxima a
+  /// la más lejana. Para el paciente, [appointments] ya son solo las suyas.
+  List<Appointment> get upcomingPatientAppointments {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return _appointments
+        .where((a) =>
+            !a.date.isBefore(today) &&
+            (a.status == AppointmentStatus.confirmada ||
+                a.status == AppointmentStatus.pendiente))
+        .toList();
+  }
 
   List<InventoryItem> _inventory = [];
   List<InventoryItem> get inventory => _inventory;

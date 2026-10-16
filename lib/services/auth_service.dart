@@ -14,11 +14,16 @@ class AuthException implements Exception {
 
 /// Envuelve Firebase Auth y el perfil del usuario en Firestore (`users/{uid}`).
 class AuthService {
-  AuthService._();
-  static final AuthService instance = AuthService._();
+  AuthService({FirebaseAuth? auth, FirebaseFirestore? db})
+      : _auth = auth ?? FirebaseAuth.instance,
+        db = db ?? FirebaseFirestore.instance;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  /// Instancia global. Los tests la reemplazan por una con Firebase simulado.
+  static AuthService instance = AuthService();
+
+  final FirebaseAuth _auth;
+  final FirebaseFirestore db;
+  FirebaseFirestore get _db => db;
 
   User? get currentUser => _auth.currentUser;
 

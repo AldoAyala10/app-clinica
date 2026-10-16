@@ -30,6 +30,19 @@ jobs:
       - name: Ejecutar pruebas unitarias y de widgets
         run: flutter test --reporter expanded
 
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
       - name: Confirmar estado exitoso
         if: success()
         run: echo "Todas las pruebas de Flutter y el análisis estático pasaron exitosamente."
+
+      - name: Notificar falla por WebHook (Discord / Slack)
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"⚠️ El pipeline CI ha fallado en ${{ github.repository }}. Revisa GitHub Actions."}' \
+          ${{ secrets.WEBHOOK_URL }}
