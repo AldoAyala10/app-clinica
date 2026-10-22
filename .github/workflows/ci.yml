@@ -68,6 +68,7 @@ jobs:
             -Dsonar.tests=test
             -Dsonar.sourceEncoding=UTF-8
             -Dsonar.dart.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.coverage.exclusions=lib/firebase_options.dart
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=300
 
