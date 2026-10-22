@@ -6,40 +6,58 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
     function isDoctor() {
-      return signedIn()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'doctor';
+      return signedIn() && role() == 'doctor';
+    }
+
+    // Personal del panel web (Sprint 5): administración y recepción.
+    function isAdmin() {
+      return signedIn() && role() == 'admin';
+    }
+
+    function isStaff() {
+      return signedIn() && role() in ['admin', 'receptionist'];
     }
 
     // Perfil de cada cuenta. El rol solo se crea como "patient" desde la app;
-    // los doctores se marcan a mano desde la consola.
+    // doctores, administradores y recepcionistas se marcan a mano desde la
+    // consola.
     match /users/{uid} {
-      allow read: if signedIn() && (request.auth.uid == uid || isDoctor());
+      allow read: if signedIn()
+                  && (request.auth.uid == uid || isDoctor() || isStaff());
       allow create: if signedIn() && request.auth.uid == uid
                     && request.resource.data.role == 'patient';
       allow update: if signedIn() && request.auth.uid == uid
                     && request.resource.data.role == resource.data.role;
     }
 
-    // Fichas de pacientes: el doctor las administra; el paciente solo
-    // puede crear y leer la suya (mismo id que su cuenta).
+    // Fichas de pacientes: el doctor y el administrador las gestionan (alta,
+    // edición y baja lógica con "active"); recepción solo las consulta para
+    // agendar. El paciente solo puede crear y leer la suya.
     match /patients/{patientId} {
-      allow read: if isDoctor() || (signedIn() && request.auth.uid == patientId);
-      allow create: if isDoctor()
+      allow read: if isDoctor() || isStaff()
+                  || (signedIn() && request.auth.uid == patientId);
+      allow create: if isDoctor() || isAdmin()
                     || (signedIn() && request.auth.uid == patientId
                         && request.resource.data.userId == request.auth.uid);
-      allow update, delete: if isDoctor();
+      allow update: if isDoctor() || isAdmin();
+      allow delete: if isDoctor();
     }
 
-    // Citas: el doctor ve y edita todas; el paciente solo las suyas,
-    // las crea como "pendiente" y únicamente puede cancelarlas.
+    // Citas: el doctor y el personal ven y editan todas; el paciente solo
+    // las suyas, las crea como "pendiente" y solo puede cancelarlas o
+    // reprogramarlas.
     match /appointments/{id} {
-      allow read: if isDoctor()
+      allow read: if isDoctor() || isStaff()
                   || (signedIn() && resource.data.patientId == request.auth.uid);
-      allow create: if isDoctor()
+      allow create: if isDoctor() || isStaff()
                     || (signedIn() && request.resource.data.patientId == request.auth.uid
                         && request.resource.data.status == 'pendiente');
-      allow update: if isDoctor()
+      allow update: if isDoctor() || isStaff()
                     || (signedIn() && resource.data.patientId == request.auth.uid
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
                 && request.resource.data.status == 'cancelada')
@@ -60,9 +78,9 @@ service cloud.firestore {
     // recibe permission-denied. Se borra al cancelar la cita.
     match /slots/{slotId} {
       allow get: if signedIn();
-      allow create: if isDoctor()
+      allow create: if isDoctor() || isStaff()
                     || (signedIn() && request.resource.data.patientId == request.auth.uid);
-      allow delete: if isDoctor()
+      allow delete: if isDoctor() || isStaff()
                     || (signedIn() && resource.data.patientId == request.auth.uid);
     }
 

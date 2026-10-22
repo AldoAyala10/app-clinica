@@ -112,9 +112,15 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() {
           _isLoading = false;
           _validationErrors = [
-            role == UserRole.doctor
-                ? 'Esta cuenta es de doctor. Selecciona "Doctor".'
-                : 'Esta cuenta es de paciente. Selecciona "Paciente".',
+            switch (role) {
+              UserRole.doctor =>
+                'Esta cuenta es de doctor. Selecciona "Doctor".',
+              UserRole.patient =>
+                'Esta cuenta es de paciente. Selecciona "Paciente".',
+              UserRole.admin || UserRole.receptionist =>
+                'Esta cuenta es del personal administrativo. '
+                    'Entra desde el panel web.',
+            },
           ];
         });
       }

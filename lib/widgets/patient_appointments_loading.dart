@@ -30,6 +30,10 @@ mixin PatientAppointmentsLoading<T extends PatientAppointmentsScreen> on State<T
     return PatientViewStatus.ready;
   }
 
+  /// Las citas vienen de la copia local porque no hay red.
+  bool get appointmentsOffline =>
+      !_usesLoader && widget.state.appointmentsOffline;
+
   @override
   void initState() {
     super.initState();

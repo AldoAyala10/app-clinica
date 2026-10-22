@@ -26,9 +26,11 @@ class FirebaseClinicRepository {
   Stream<QuerySnapshot<Map<String, dynamic>>> watchAppointments({
     String? patientId,
   }) =>
-      patientId == null
-          ? _appointments.snapshots()
-          : _appointments.where('patientId', isEqualTo: patientId).snapshots();
+      // includeMetadataChanges avisa cuando se pierde o recupera la red.
+      (patientId == null
+              ? _appointments
+              : _appointments.where('patientId', isEqualTo: patientId))
+          .snapshots(includeMetadataChanges: true);
 
   Stream<QuerySnapshot<Map<String, dynamic>>> watchPatients() =>
       _patients.snapshots();
@@ -106,6 +108,7 @@ class FirebaseClinicRepository {
       patientName: patientName,
       doctorId: doctor.id,
       doctorName: doctor.name,
+      office: doctor.office,
       specialty: specialty,
       date: date,
       time: time,
@@ -180,6 +183,128 @@ class FirebaseClinicRepository {
 
   Future<void> addPatient(Patient patient) async {
     await _patients.add(patient.toMap());
+  }
+
+  // ---------------------------------------------------------------------
+  // Panel administrativo (US03 pacientes, US05 citas)
+  // ---------------------------------------------------------------------
+
+  /// Da de alta un paciente y devuelve el id de su ficha.
+  Future<String> createPatient(Patient patient) async {
+    final ref = await _patients.add({
+      ...patient.toMap(),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return ref.id;
+  }
+
+  /// Edita los datos de contacto y clínicos de la ficha.
+  Future<void> updatePatient(Patient patient) {
+    return _patients.doc(patient.id).update({
+      'name': patient.name,
+      'phone': patient.phone,
+      'email': patient.email,
+      'treatment': patient.treatment,
+      'medicalAlerts': patient.medicalAlerts,
+    });
+  }
+
+  /// Baja lógica: el paciente deja de aparecer pero conserva su historial.
+  Future<void> setPatientActive(String patientId, bool active) {
+    return _patients.doc(patientId).update({'active': active});
+  }
+
+  /// Horarios del día que ya tiene ocupados el doctor.
+  Future<Set<String>> takenTimes(String doctorId, DateTime date) async {
+    final taken = <String>{};
+    await Future.wait(kTimeSlots.map((time) async {
+      if (await isSlotTaken(doctorId, date, time)) taken.add(time);
+    }));
+    return taken;
+  }
+
+  /// Crea una cita desde recepción, apartando el horario del doctor. Lanza
+  /// [StateError] si el horario ya está ocupado.
+  Future<void> createStaffAppointment({
+    required Patient patient,
+    required Doctor doctor,
+    required String specialty,
+    required DateTime date,
+    required String time,
+    String notes = '',
+    AppointmentStatus status = AppointmentStatus.confirmada,
+  }) async {
+    final slot = _slots.doc(slotId(doctor.id, date, time));
+    if ((await slot.get()).exists) {
+      throw StateError('Ese horario ya está ocupado para ${doctor.name}.');
+    }
+    final appointmentRef = _appointments.doc();
+    final appointment = Appointment(
+      id: appointmentRef.id,
+      patientId: patient.userId,
+      patientName: patient.name,
+      doctorId: doctor.id,
+      doctorName: doctor.name,
+      office: doctor.office,
+      specialty: specialty,
+      date: date,
+      time: time,
+      status: status,
+      notes: notes,
+      avatarColor: patient.avatarColor,
+    );
+    final batch = _db.batch()
+      ..set(slot, {
+        'patientId': patient.userId,
+        'appointmentId': appointmentRef.id,
+        'doctorId': doctor.id,
+      })
+      ..set(appointmentRef, {
+        ...appointment.toMap(),
+        'patientRecordId': patient.id,
+        'slotId': slot.id,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    await batch.commit();
+  }
+
+  /// Modifica una cita desde recepción. Si cambia el doctor, el día o la
+  /// hora, mueve el horario apartado validando que el nuevo esté libre.
+  Future<void> updateStaffAppointment({
+    required Appointment appointment,
+    required Doctor doctor,
+    required String specialty,
+    required DateTime date,
+    required String time,
+    required String notes,
+  }) async {
+    final appointmentRef = _appointments.doc(appointment.id);
+    final oldSlotId = (await appointmentRef.get()).data()?['slotId'] as String?;
+    final newSlotId = slotId(doctor.id, date, time);
+
+    final batch = _db.batch();
+    if (oldSlotId != newSlotId) {
+      if ((await _slots.doc(newSlotId).get()).exists) {
+        throw StateError('Ese horario ya está ocupado para ${doctor.name}.');
+      }
+      batch.set(_slots.doc(newSlotId), {
+        'patientId': appointment.patientId,
+        'appointmentId': appointment.id,
+        'doctorId': doctor.id,
+      });
+      if (oldSlotId != null) batch.delete(_slots.doc(oldSlotId));
+    }
+    batch.update(appointmentRef, {
+      'doctorId': doctor.id,
+      'doctorName': doctor.name,
+      'office': doctor.office,
+      'specialty': specialty,
+      'date': Timestamp.fromDate(date),
+      'time': time,
+      'notes': notes,
+      'slotId': newSlotId,
+    });
+    await batch.commit();
   }
 
   Future<void> updateStock(String id, int stock) async {

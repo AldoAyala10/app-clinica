@@ -27,6 +27,9 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
+  /// Emite cada vez que se inicia o se cierra sesión.
+  Stream<User?> authStateChanges() => _auth.authStateChanges();
+
   DocumentReference<Map<String, dynamic>> _userDoc(String uid) =>
       _db.collection('users').doc(uid);
 
@@ -87,7 +90,7 @@ class AuthService {
   Future<UserRole> getRole(String uid) async {
     final snapshot = await _userDoc(uid).get();
     final role = snapshot.data()?['role'];
-    return role == UserRole.doctor.name ? UserRole.doctor : UserRole.patient;
+    return UserRole.values.asNameMap()[role] ?? UserRole.patient;
   }
 
   Future<Map<String, dynamic>?> getProfile() async {
