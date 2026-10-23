@@ -87,6 +87,11 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+        // El personal administrativo usa el panel web, no la app.
+        if (snapshot.data!.isStaff) {
+          AuthService.instance.signOut();
+          return const WelcomeScreen();
+        }
         return snapshot.data == UserRole.doctor
             ? const DoctorMainScreen()
             : const PatientMainScreen();

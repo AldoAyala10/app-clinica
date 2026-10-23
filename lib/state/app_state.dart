@@ -9,7 +9,22 @@ import '../models/inventory_item.dart';
 import '../services/auth_service.dart';
 import '../repositories/firebase_clinic_repository.dart';
 
-enum UserRole { doctor, patient }
+enum UserRole {
+  doctor,
+  patient,
+  admin,
+  receptionist;
+
+  /// Personal que trabaja desde el panel administrativo web.
+  bool get isStaff => this == admin || this == receptionist;
+
+  String get label => switch (this) {
+    UserRole.doctor => 'Doctor',
+    UserRole.patient => 'Paciente',
+    UserRole.admin => 'Administrador',
+    UserRole.receptionist => 'Recepción',
+  };
+}
 
 class AppState extends ChangeNotifier {
   /// Escucha en tiempo real los datos de Firestore que le tocan al rol:
@@ -38,32 +53,7 @@ class AppState extends ChangeNotifier {
   String clinicName = 'Clínica Dental';
 
   // Doctors Directory
-  final List<Doctor> doctors = [
-    Doctor(
-      id: 'd1',
-      name: 'Dr. Carlos Sandoval',
-      specialty: 'Odontología General',
-      clinic: 'Clínica Dental',
-      rating: 4.9,
-      experience: '10 años exp.',
-    ),
-    Doctor(
-      id: 'd2',
-      name: 'Dra. Sofía Vega',
-      specialty: 'Ortodoncia & Estética',
-      clinic: 'Clínica Dental',
-      rating: 5.0,
-      experience: '8 años exp.',
-    ),
-    Doctor(
-      id: 'd3',
-      name: 'Dr. Roberto Mendoza',
-      specialty: 'Endodoncia & Cirugía',
-      clinic: 'Clínica Dental',
-      rating: 4.8,
-      experience: '12 años exp.',
-    ),
-  ];
+  final List<Doctor> doctors = kClinicDoctors;
 
   List<Patient> _patients = [];
   List<Patient> get patients => _patients;
@@ -137,6 +127,9 @@ class AppState extends ChangeNotifier {
 
   StreamSubscription? _appointmentsSub;
 
+  /// true cuando las citas vienen de la copia local porque no hay red.
+  bool appointmentsOffline = false;
+
   /// Falso hasta que llega la primera respuesta de Firestore con las citas.
   bool appointmentsLoaded = false;
 
@@ -156,6 +149,7 @@ class AppState extends ChangeNotifier {
           ..sort((a, b) => a.date.compareTo(b.date));
         appointmentsLoaded = true;
         appointmentsError = null;
+        appointmentsOffline = snap.metadata.isFromCache;
         notifyListeners();
       },
       onError: (Object error) {

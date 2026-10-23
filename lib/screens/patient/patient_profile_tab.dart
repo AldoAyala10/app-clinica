@@ -6,6 +6,7 @@ import '../../state/app_state.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/appointment_card.dart';
 import '../welcome_screen.dart';
+import 'patient_card_screen.dart';
 
 class PatientProfileTab extends StatelessWidget {
   final AppState state;
@@ -118,6 +119,16 @@ class PatientProfileTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(22),
                   child: Column(
                     children: [
+                      _buildMenuItem(
+                        icon: Icons.qr_code_2_rounded,
+                        title: 'Mi carnet digital',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PatientCardScreen(state: state),
+                          ),
+                        ),
+                      ),
+                      _buildDivider(),
                       _buildMenuItem(
                         icon: Icons.badge_outlined,
                         title: 'Datos personales',

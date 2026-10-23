@@ -188,6 +188,38 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab>
               ),
               const SizedBox(height: 18),
 
+              // Sin red: Firestore muestra la última copia guardada.
+              if (appointmentsOffline) ...[
+                Container(
+                  key: const Key('patient_appointments_offline'),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.warningBg,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.wifi_off_rounded,
+                          size: 18, color: AppTheme.warningOrange),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Sin conexión. Mostrando tus citas guardadas; '
+                          'se actualizarán al recuperar la red.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               // Estado de la lista: cargando, error, vacío o resultados.
               Expanded(
                 child: patientStatus == PatientViewStatus.loading
@@ -263,8 +295,9 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab>
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       backgroundColor: Colors.white,
+      isScrollControlled: true,
       builder: (context) {
-        return Padding(
+        return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -329,6 +362,16 @@ class _PatientAppointmentsTabState extends State<PatientAppointmentsTab>
                   color: AppTheme.textSecondary,
                 ),
               ),
+              if (app.office.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Consultorio: ${app.office}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
               if (app.notes.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(

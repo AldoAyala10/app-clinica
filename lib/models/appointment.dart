@@ -53,8 +53,14 @@ class Appointment {
   /// uid de la cuenta del paciente; null si el paciente no tiene cuenta.
   final String? patientId;
   final String? doctorId;
+
+  /// Id de la ficha en `patients` (para pacientes sin cuenta en la app).
+  final String? patientRecordId;
   final String patientName;
   final String doctorName;
+
+  /// Consultorio donde se atiende la cita (vacío en citas antiguas).
+  final String office;
   final String specialty;
   final DateTime date;
   final String time;
@@ -66,8 +72,10 @@ class Appointment {
     required this.id,
     this.patientId,
     this.doctorId,
+    this.patientRecordId,
     required this.patientName,
     required this.doctorName,
+    this.office = '',
     required this.specialty,
     required this.date,
     required this.time,
@@ -80,8 +88,10 @@ class Appointment {
     id: id,
     patientId: patientId,
     doctorId: doctorId,
+    patientRecordId: patientRecordId,
     patientName: patientName,
     doctorName: doctorName,
+    office: office,
     specialty: specialty,
     date: date,
     time: time,
@@ -96,8 +106,10 @@ class Appointment {
       id: doc.id,
       patientId: d['patientId'] as String?,
       doctorId: d['doctorId'] as String?,
+      patientRecordId: d['patientRecordId'] as String?,
       patientName: d['patientName'] ?? '',
       doctorName: d['doctorName'] ?? '',
+      office: d['office'] ?? '',
       specialty: d['specialty'] ?? '',
       date: (d['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
       time: d['time'] ?? '',
@@ -114,6 +126,7 @@ class Appointment {
     'doctorId': doctorId,
     'patientName': patientName,
     'doctorName': doctorName,
+    'office': office,
     'specialty': specialty,
     'date': Timestamp.fromDate(date),
     'time': time,
