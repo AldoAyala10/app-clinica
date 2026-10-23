@@ -1,3 +1,4 @@
+import 'package:app_clinica/admin/admin_login_screen.dart';
 import 'package:app_clinica/main.dart';
 import 'package:app_clinica/models/appointment.dart';
 import 'package:app_clinica/models/doctor.dart';
@@ -146,6 +147,32 @@ void main() {
       await showAppointments(tester);
       expect(find.byKey(const Key('patient_appointments_empty')),
           findsOneWidget);
+    });
+  });
+
+  group('Acceso administrativo desde el login', () {
+    testWidgets('el enlace abre el login del panel y permite regresar',
+        (tester) async {
+      await setUpFirebase();
+      await tester.pumpWidget(
+        const MaterialApp(home: LoginScreen(showAdminAccess: true)),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('admin_access_link')));
+      await tester.tap(find.byKey(const Key('admin_access_link')));
+      await tester.pumpAndSettle();
+      expect(find.byType(AdminLoginScreen), findsOneWidget);
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginScreen), findsOneWidget);
+    });
+
+    testWidgets('fuera de web no se muestra el enlace', (tester) async {
+      await setUpFirebase();
+      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('admin_access_link')), findsNothing);
     });
   });
 

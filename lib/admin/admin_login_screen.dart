@@ -64,6 +64,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bgGradientTop,
+      // Si se abrió desde el login de la app, permite regresar.
+      appBar: Navigator.of(context).canPop()
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: const BackButton(color: AppTheme.textPrimary),
+            )
+          : null,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

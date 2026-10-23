@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -9,6 +10,7 @@ import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../state/app_state.dart';
 import '../services/auth_service.dart';
+import '../admin/admin_app.dart';
 import 'register_screen.dart';
 import 'doctor/doctor_main_screen.dart';
 import 'patient/patient_main_screen.dart';
@@ -21,9 +23,17 @@ typedef LoginAuthenticator = Future<UserRole> Function(
 );
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.authenticate});
+  const LoginScreen({
+    super.key,
+    this.authenticate,
+    this.showAdminAccess = kIsWeb,
+  });
 
   final LoginAuthenticator? authenticate;
+
+  /// Muestra el enlace al panel administrativo (por defecto solo en web,
+  /// donde trabaja el personal).
+  final bool showAdminAccess;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -445,6 +455,31 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
+              if (widget.showAdminAccess) ...[
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  key: const Key('admin_access_link'),
+                  onPressed: _isLoading
+                      ? null
+                      : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AdminAuthGate(),
+                          ),
+                        ),
+                  icon: const Icon(
+                    Icons.admin_panel_settings_outlined,
+                    size: 18,
+                  ),
+                  label: const Text('Acceso administrativo'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.textSecondary,
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
             ],
           ),

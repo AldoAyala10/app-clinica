@@ -26,6 +26,9 @@ flutter run -d chrome -t lib/main_admin.dart
 flutter build web -t lib/main_admin.dart -o build/web_admin
 ```
 
+En la versión web de la app también se entra desde el login, con el enlace
+**Acceso administrativo** debajo de "¿No tienes una cuenta?".
+
 Cuentas del personal: crea el usuario en Firebase Authentication y su documento
 `users/{uid}` con `name`, `email` y `role`:
 

@@ -47,6 +47,8 @@ class _AdminShellState extends State<AdminShell> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        // Se sale del panel con "Cerrar sesión", no con la flecha de regreso.
+        automaticallyImplyLeading: false,
         titleSpacing: 16,
         title: const Row(
           children: [
