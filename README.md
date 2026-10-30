@@ -16,7 +16,7 @@ de ocho en ocho. Para probar HU-10, entra con una cuenta de paciente, abre
 **Mis Citas**, toca una cita activa y elige **Cancelar** o **Reprogramar**.
 El historial pasado aparece en **Mis Citas > Historial** y desde **Mi Perfil**.
 
-## Panel Administrativo Web (Sprint 5)
+## Panel web (administración, recepción y odontología)
 
 El panel es un segundo punto de entrada del mismo proyecto Flutter
 (`lib/main_admin.dart`) y comparte modelos, repositorio y Firebase con la app.
@@ -26,19 +26,48 @@ flutter run -d chrome -t lib/main_admin.dart
 flutter build web -t lib/main_admin.dart -o build/web_admin
 ```
 
-Cuentas del personal: crea el usuario en Firebase Authentication y su documento
-`users/{uid}` con `name`, `email` y `role`:
+Crea el usuario en Firebase Authentication y su documento `users/{uid}` con
+`name`, `email` y `role`. Para odontología, agrega también `doctorId` con el id
+del odontólogo (`d1`, `d2` o `d3`) para abrir automáticamente su fila:
 
 | Rol | `role` | Qué puede hacer en el panel |
 |---|---|---|
-| Administrador | `admin` | US03: alta, consulta, edición y baja de pacientes; US05: citas |
-| Recepción | `receptionist` | US05: crear, modificar, confirmar y cancelar citas |
+| Administrador | `admin` | Pacientes, citas y turnos |
+| Recepción | `receptionist` | Citas y turnos |
+| Odontólogo | `doctor` | Llamar y cerrar turnos desde la vista web |
 
-Estas cuentas no pueden entrar a la app móvil. La baja de un paciente es
-lógica (`active: false`): deja de aparecer y no se le agendan citas, pero
-conserva su historial y se puede reactivar. Al crear o modificar una cita, el
-panel marca los horarios ocupados del odontólogo; cada odontólogo tiene su
-consultorio, así que un horario libre también garantiza el consultorio.
+La vista **Turnos** genera números secuenciales por odontólogo y día. Recepción
+puede registrar una llegada sin cita o marcar la llegada de una cita de hoy; el
+ticket conserva su origen y pasa por los estados `waiting` (en espera),
+`inService` (en atención), `served` (atendido) y `cancelled` (cancelado). El
+odontólogo llama al siguiente turno y marca el actual como atendido antes de
+continuar. La asignación usa transacciones de Firestore e impide números
+duplicados cuando hay altas simultáneas.
+
+El turno actual se publica en `queueBoards/{doctorId}_YYYY-MM-DD`. El endpoint
+REST de Firestore es:
+
+```text
+https://firestore.googleapis.com/v1/projects/{projectId}/databases/(default)/documents/queueBoards/{doctorId}_{YYYY-MM-DD}
+```
+
+El documento contiene únicamente el número y estado del turno actual, sin
+información personal. Puede consultarse por REST y observarse en vivo con el
+listener de Firestore (`snapshots()` / `onSnapshot`). Las reglas permiten su
+lectura pública y restringen las escrituras a doctores y personal; los tickets
+con nombres permanecen privados. Despliega las reglas actualizadas antes de
+habilitar la función en producción:
+
+```sh
+firebase deploy --only firestore:rules
+```
+
+Las cuentas de administración y recepción no pueden entrar a la app móvil. La
+baja de un paciente es lógica (`active: false`): deja de aparecer y no se le
+agendan citas, pero conserva su historial y se puede reactivar. Al crear o
+modificar una cita, el panel marca los horarios ocupados del odontólogo; cada
+odontólogo tiene su consultorio, así que un horario libre también garantiza el
+consultorio.
 
 En la app móvil, el paciente encuentra su **carnet digital con QR** en
 **Mi Perfil > Mi carnet digital** (US04). El QR contiene

@@ -17,7 +17,7 @@ class AdminPageHeader extends StatelessWidget {
   final String subtitle;
   final String actionLabel;
   final IconData actionIcon;
-  final VoidCallback onAction;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {

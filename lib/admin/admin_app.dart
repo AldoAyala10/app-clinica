@@ -59,13 +59,17 @@ class _StaffSession extends StatefulWidget {
 }
 
 class _StaffSessionState extends State<_StaffSession> {
-  late final Future<(UserRole, String)> _profile = _loadProfile();
+  late final Future<(UserRole, String, String?)> _profile = _loadProfile();
   AdminState? _state;
 
-  Future<(UserRole, String)> _loadProfile() async {
+  Future<(UserRole, String, String?)> _loadProfile() async {
     final role = await AuthService.instance.getRole(widget.uid);
     final profile = await AuthService.instance.getProfile();
-    return (role, (profile?['name'] as String?) ?? '');
+    return (
+      role,
+      (profile?['name'] as String?) ?? '',
+      profile?['doctorId'] as String?,
+    );
   }
 
   @override
@@ -76,7 +80,7 @@ class _StaffSessionState extends State<_StaffSession> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<(UserRole, String)>(
+    return FutureBuilder<(UserRole, String, String?)>(
       future: _profile,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -89,19 +93,24 @@ class _StaffSessionState extends State<_StaffSession> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        final (role, name) = snapshot.data!;
-        if (!role.isStaff) {
+        final (role, name, doctorId) = snapshot.data!;
+        if (!role.isStaff && role != UserRole.doctor) {
           return const _NoAccess(
             message:
                 'Esta cuenta no tiene acceso al panel administrativo. '
                 'Usa la app móvil.',
           );
         }
-        _state ??= AdminState(role: role, staffName: name);
+        _state ??= AdminState(
+          role: role,
+          staffName: name,
+          doctorId: doctorId,
+        );
         return AdminShell(state: _state!);
       },
     );
   }
+
 }
 
 class _NoAccess extends StatelessWidget {

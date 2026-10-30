@@ -1,19 +1,31 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/appointment.dart';
 import '../models/doctor.dart';
 import '../models/patient.dart';
+import '../models/queue_ticket.dart';
 import '../repositories/firebase_clinic_repository.dart';
 import '../services/auth_service.dart';
 import '../state/app_state.dart';
+import '../firebase_options.dart';
 
-/// Estado del panel administrativo web: pacientes y citas de toda la
-/// clínica en tiempo real, más las operaciones de alta, edición y baja.
+/// Estado del panel web: pacientes y citas en tiempo real, más las operaciones
+/// de administración y el control compartido de turnos.
 class AdminState extends ChangeNotifier {
-  AdminState({required this.role, required this.staffName})
-    : _repository = FirebaseClinicRepository(AuthService.instance.db) {
+  AdminState({
+    required this.role,
+    required this.staffName,
+    String? doctorId,
+    String? firebaseProjectId,
+  }) : _firebaseProjectId = firebaseProjectId,
+       _repository = FirebaseClinicRepository(AuthService.instance.db) {
+    preferredDoctorId = doctorId ??
+        doctors.where((doctor) => doctor.name == staffName)
+            .map((doctor) => doctor.id)
+            .firstOrNull;
     _subs
       ..add(
         _repository.watchPatients().listen((snap) {
@@ -35,13 +47,53 @@ class AdminState extends ChangeNotifier {
 
   final UserRole role;
   final String staffName;
+  final String? _firebaseProjectId;
   final FirebaseClinicRepository _repository;
   final List<StreamSubscription> _subs = [];
 
   /// Solo el administrador gestiona pacientes; recepción gestiona citas.
   bool get canManagePatients => role == UserRole.admin;
+  bool get canManageQueue => role.isStaff || role == UserRole.doctor;
+  bool get canManageAppointments => role.isStaff;
 
   List<Doctor> get doctors => kClinicDoctors;
+  late final String? preferredDoctorId;
+  String get firebaseProjectId =>
+      _firebaseProjectId ?? DefaultFirebaseOptions.web.projectId;
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchQueue(String queueKey) =>
+      _repository.watchQueue(queueKey);
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchQueueBoard(
+    String queueKey,
+  ) => _repository.watchQueueBoard(queueKey);
+
+  Future<void> ensureQueueBoard(Doctor doctor, DateTime date) =>
+      _repository.ensureQueueBoard(doctorId: doctor.id, date: date);
+
+  Future<QueueTicket> registerQueueTicket({
+    required Doctor doctor,
+    required DateTime date,
+    required String patientName,
+    required QueueTicketSource source,
+    String? appointmentId,
+  }) => _repository.registerQueueTicket(
+    doctorId: doctor.id,
+    doctorName: doctor.name,
+    date: date,
+    patientName: patientName,
+    source: source,
+    appointmentId: appointmentId,
+  );
+
+  Future<void> callNextQueueTicket(String queueKey, QueueTicket ticket) =>
+      _repository.callNextQueueTicket(queueKey: queueKey, ticket: ticket);
+
+  Future<void> finishQueueTicket(String queueKey, QueueTicket ticket) =>
+      _repository.finishQueueTicket(queueKey: queueKey, ticket: ticket);
+
+  Future<void> cancelQueueTicket(QueueTicket ticket) =>
+      _repository.cancelQueueTicket(ticket);
 
   List<Patient> _patients = [];
   List<Patient> get patients => _patients;

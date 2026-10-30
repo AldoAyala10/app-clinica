@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/tooth_logo.dart';
 
-/// Inicio de sesión del personal (administración y recepción). Al entrar,
-/// [AdminAuthGate] detecta la sesión y abre el panel.
+/// Inicio de sesión del personal y odontólogos para el panel web.
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
 
@@ -46,11 +46,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         email: email,
         password: password,
       );
-      if (!role.isStaff) {
+      if (!role.isStaff && role != UserRole.doctor) {
         await AuthService.instance.signOut();
         if (mounted) {
-          setState(() => _error =
-              'Esta cuenta no tiene acceso al panel administrativo.');
+          setState(
+            () => _error =
+                'Esta cuenta no tiene acceso al panel administrativo.',
+          );
         }
       }
     } on AuthException catch (e) {
@@ -93,7 +95,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Acceso para administración y recepción',
+                    'Acceso para odontología, administración y recepción',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppTheme.textSecondary),
                   ),

@@ -4,6 +4,7 @@ import 'package:app_clinica/admin/admin_shell.dart';
 import 'package:app_clinica/admin/admin_state.dart';
 import 'package:app_clinica/admin/pages/appointments_page.dart';
 import 'package:app_clinica/admin/pages/patients_page.dart';
+import 'package:app_clinica/admin/pages/queue_page.dart';
 import 'package:app_clinica/models/appointment.dart';
 import 'package:app_clinica/models/doctor.dart';
 import 'package:app_clinica/repositories/firebase_clinic_repository.dart';
@@ -242,15 +243,27 @@ void main() {
       expect(find.byType(AdminLoginScreen), findsOneWidget);
     });
 
-    testWidgets('recepción solo ve el gestor de citas', (tester) async {
+    testWidgets('recepción ve citas y control de turnos', (tester) async {
       useDesktopSize(tester);
       await setUpFirebase(signedInUid: receptionistUid);
       await tester.pumpWidget(const AdminApp());
       await tester.pumpAndSettle();
       expect(find.byType(AppointmentsPage), findsOneWidget);
+      expect(find.text('Turnos'), findsOneWidget);
       expect(find.byType(PatientsPage), findsNothing);
-      expect(find.byType(NavigationRail), findsNothing);
+      expect(find.byType(NavigationRail), findsOneWidget);
       expect(find.text('Recepción'), findsOneWidget);
+    });
+
+    testWidgets('el odontólogo entra al panel web de turnos', (tester) async {
+      useDesktopSize(tester);
+      await setUpFirebase(signedInUid: doctorUid);
+      await tester.pumpWidget(const AdminApp());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(QueuePage), findsOneWidget);
+      expect(find.byType(AppointmentsPage), findsNothing);
+      expect(find.text('Control de turnos'), findsOneWidget);
     });
 
     testWidgets('una sesión de paciente abierta ve "sin acceso"',

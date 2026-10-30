@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/tooth_logo.dart';
 import 'admin_state.dart';
 import 'pages/appointments_page.dart';
 import 'pages/patients_page.dart';
+import 'pages/queue_page.dart';
 
 /// Marco del panel: menú lateral (Pacientes solo para administración) y la
 /// página activa.
@@ -33,11 +35,18 @@ class _AdminShellState extends State<AdminShell> {
           label: 'Pacientes',
           build: (_) => PatientsPage(state: state),
         ),
-      (
-        icon: Icons.calendar_month_rounded,
-        label: 'Citas',
-        build: (_) => AppointmentsPage(state: state),
-      ),
+      if (state.canManageAppointments)
+        (
+          icon: Icons.calendar_month_rounded,
+          label: 'Citas',
+          build: (_) => AppointmentsPage(state: state),
+        ),
+      if (state.canManageQueue)
+        (
+          icon: Icons.confirmation_number_rounded,
+          label: 'Turnos',
+          build: (_) => QueuePage(state: state),
+        ),
     ];
     final current = pages[_index.clamp(0, pages.length - 1)];
     final wide = MediaQuery.sizeOf(context).width >= 900;
@@ -48,12 +57,14 @@ class _AdminShellState extends State<AdminShell> {
         backgroundColor: Colors.white,
         elevation: 0,
         titleSpacing: 16,
-        title: const Row(
+        title: Row(
           children: [
-            ToothLogo(size: 32),
-            SizedBox(width: 10),
+            const ToothLogo(size: 32),
+            const SizedBox(width: 10),
             Text(
-              'Clínica Dental · Panel Administrativo',
+              state.role == UserRole.doctor
+                  ? 'Clínica Dental · Panel Odontológico'
+                  : 'Clínica Dental · Panel Administrativo',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,

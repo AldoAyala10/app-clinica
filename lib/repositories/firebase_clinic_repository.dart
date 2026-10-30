@@ -5,6 +5,7 @@ import '../models/appointment.dart';
 import '../models/doctor.dart';
 import '../models/inventory_item.dart';
 import '../models/patient.dart';
+import '../models/queue_ticket.dart';
 
 class FirebaseClinicRepository {
   FirebaseClinicRepository(this._db);
@@ -19,6 +20,183 @@ class FirebaseClinicRepository {
       _db.collection('inventory');
   CollectionReference<Map<String, dynamic>> get _slots =>
       _db.collection('slots');
+  CollectionReference<Map<String, dynamic>> get _queueTickets =>
+      _db.collection('queueTickets');
+  CollectionReference<Map<String, dynamic>> get _queueCounters =>
+      _db.collection('queueCounters');
+  CollectionReference<Map<String, dynamic>> get _queueBoards =>
+      _db.collection('queueBoards');
+
+  static String queueDateKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
+  static String queueKey(String doctorId, DateTime date) =>
+      '${doctorId}_${queueDateKey(date)}';
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchQueue(String queueKey) =>
+      _queueTickets
+          .where('queueKey', isEqualTo: queueKey)
+          .snapshots(includeMetadataChanges: true);
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchQueueBoard(
+    String queueKey,
+  ) => _queueBoards.doc(queueKey).snapshots();
+
+  Future<void> ensureQueueBoard({
+    required String doctorId,
+    required DateTime date,
+  }) async {
+    final key = queueKey(doctorId, date);
+    final board = _queueBoards.doc(key);
+    await _db.runTransaction((transaction) async {
+      final snapshot = await transaction.get(board);
+      if (snapshot.exists) return;
+      transaction.set(board, {
+        'doctorId': doctorId,
+        'queueDate': queueDateKey(date),
+        'currentTicketNumber': null,
+        'currentStatus': 'sin_turno',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
+  Future<QueueTicket> registerQueueTicket({
+    required String doctorId,
+    required String doctorName,
+    required DateTime date,
+    required String patientName,
+    required QueueTicketSource source,
+    String? appointmentId,
+  }) async {
+    final day = queueDateKey(date);
+    final key = queueKey(doctorId, date);
+    final counter = _queueCounters.doc(key);
+    final board = _queueBoards.doc(key);
+    final ticket = appointmentId == null
+        ? _queueTickets.doc()
+        : _queueTickets.doc('appointment_$appointmentId');
+
+    return _db.runTransaction((transaction) async {
+      final counterSnapshot = await transaction.get(counter);
+      final ticketSnapshot = await transaction.get(ticket);
+      final boardSnapshot = await transaction.get(board);
+      if (ticketSnapshot.exists) return QueueTicket.fromDoc(ticketSnapshot);
+
+      final number = (counterSnapshot.data()?['lastNumber'] as int? ?? 0) + 1;
+      transaction.set(counter, {'lastNumber': number});
+      transaction.set(ticket, {
+        'queueKey': key,
+        'doctorId': doctorId,
+        'doctorName': doctorName,
+        'queueDate': day,
+        'number': number,
+        'patientName': patientName,
+        'source': source.name,
+        'status': QueueTicketStatus.waiting.name,
+        'appointmentId': appointmentId,
+        'registeredAt': FieldValue.serverTimestamp(),
+      });
+      if (!boardSnapshot.exists) {
+        transaction.set(board, {
+          'doctorId': doctorId,
+          'queueDate': day,
+          'currentTicketNumber': null,
+          'currentStatus': 'sin_turno',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      return QueueTicket(
+        id: ticket.id,
+        queueKey: key,
+        doctorId: doctorId,
+        doctorName: doctorName,
+        queueDate: day,
+        number: number,
+        patientName: patientName,
+        source: source,
+        status: QueueTicketStatus.waiting,
+        appointmentId: appointmentId,
+      );
+    });
+  }
+
+  Future<void> callNextQueueTicket({
+    required String queueKey,
+    required QueueTicket ticket,
+  }) async {
+    final board = _queueBoards.doc(queueKey);
+    final ticketRef = _queueTickets.doc(ticket.id);
+    await _db.runTransaction((transaction) async {
+      final boardSnapshot = await transaction.get(board);
+      final ticketSnapshot = await transaction.get(ticketRef);
+      if (boardSnapshot.data()?['currentTicketId'] != null) {
+        throw StateError('Finaliza el turno actual antes de llamar otro.');
+      }
+      if (!ticketSnapshot.exists ||
+          ticketSnapshot.data()?['status'] !=
+              QueueTicketStatus.waiting.name) {
+        throw StateError('El turno ya no está disponible.');
+      }
+      transaction.update(ticketRef, {
+        'status': QueueTicketStatus.inService.name,
+        'calledAt': FieldValue.serverTimestamp(),
+      });
+      transaction.set(board, {
+        'doctorId': ticket.doctorId,
+        'queueDate': ticket.queueDate,
+        'currentTicketId': ticket.id,
+        'currentTicketNumber': ticket.number,
+        'currentStatus': QueueTicketStatus.inService.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
+  }
+
+  Future<void> finishQueueTicket({
+    required String queueKey,
+    required QueueTicket ticket,
+  }) async {
+    final board = _queueBoards.doc(queueKey);
+    final ticketRef = _queueTickets.doc(ticket.id);
+    await _db.runTransaction((transaction) async {
+      final boardSnapshot = await transaction.get(board);
+      final ticketSnapshot = await transaction.get(ticketRef);
+      if (boardSnapshot.data()?['currentTicketId'] != ticket.id ||
+          ticketSnapshot.data()?['status'] !=
+              QueueTicketStatus.inService.name) {
+        throw StateError('El turno ya no está en atención.');
+      }
+      transaction.update(ticketRef, {
+        'status': QueueTicketStatus.served.name,
+        'servedAt': FieldValue.serverTimestamp(),
+      });
+      transaction.set(board, {
+        'doctorId': ticket.doctorId,
+        'queueDate': ticket.queueDate,
+        'currentTicketId': null,
+        'currentTicketNumber': null,
+        'currentStatus': 'sin_turno',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
+  }
+
+  Future<void> cancelQueueTicket(QueueTicket ticket) async {
+    final ticketRef = _queueTickets.doc(ticket.id);
+    await _db.runTransaction((transaction) async {
+      final snapshot = await transaction.get(ticketRef);
+      if (!snapshot.exists ||
+          snapshot.data()?['status'] != QueueTicketStatus.waiting.name) {
+        throw StateError('Solo se pueden cancelar turnos en espera.');
+      }
+      transaction.update(ticketRef, {
+        'status': QueueTicketStatus.cancelled.name,
+        'cancelledAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> watchUser(String uid) =>
       _db.collection('users').doc(uid).snapshots();
