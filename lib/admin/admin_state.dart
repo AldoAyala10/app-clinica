@@ -22,15 +22,19 @@ class AdminState extends ChangeNotifier {
     String? firebaseProjectId,
   }) : _firebaseProjectId = firebaseProjectId,
        _repository = FirebaseClinicRepository(AuthService.instance.db) {
-    preferredDoctorId = doctorId ??
-        doctors.where((doctor) => doctor.name == staffName)
+    preferredDoctorId =
+        doctorId ??
+        doctors
+            .where((doctor) => doctor.name == staffName)
             .map((doctor) => doctor.id)
             .firstOrNull;
     _subs
       ..add(
         _repository.watchPatients().listen((snap) {
           _patients = snap.docs.map(Patient.fromDoc).toList()
-            ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+            ..sort(
+              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+            );
           patientsLoaded = true;
           notifyListeners();
         }, onError: _onError),
@@ -77,6 +81,7 @@ class AdminState extends ChangeNotifier {
     required String patientName,
     required QueueTicketSource source,
     String? appointmentId,
+    String? patientId,
   }) => _repository.registerQueueTicket(
     doctorId: doctor.id,
     doctorName: doctor.name,
@@ -84,6 +89,7 @@ class AdminState extends ChangeNotifier {
     patientName: patientName,
     source: source,
     appointmentId: appointmentId,
+    patientId: patientId,
   );
 
   Future<void> callNextQueueTicket(String queueKey, QueueTicket ticket) =>
@@ -97,8 +103,7 @@ class AdminState extends ChangeNotifier {
 
   List<Patient> _patients = [];
   List<Patient> get patients => _patients;
-  List<Patient> get activePatients =>
-      _patients.where((p) => p.active).toList();
+  List<Patient> get activePatients => _patients.where((p) => p.active).toList();
   bool patientsLoaded = false;
 
   List<Appointment> _appointments = [];

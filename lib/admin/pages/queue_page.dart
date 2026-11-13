@@ -73,33 +73,37 @@ class _QueuePageState extends State<QueuePage> {
       _board = null;
     });
     final key = _queueKey;
-    _ticketsSub = widget.state.watchQueue(key).listen(
-      (snapshot) {
-        if (!mounted) return;
-        setState(() {
-          _tickets = snapshot.docs.map(QueueTicket.fromDoc).toList()
-            ..sort((a, b) => a.number.compareTo(b.number));
-          _loading = false;
-        });
-      },
-      onError: (Object error) {
-        if (!mounted) return;
-        setState(() {
-          _error = error;
-          _loading = false;
-        });
-      },
-    );
-    _boardSub = widget.state.watchQueueBoard(key).listen(
-      (snapshot) {
-        if (!mounted) return;
-        setState(() => _board = snapshot.data());
-      },
-      onError: (Object error) {
-        if (!mounted) return;
-        setState(() => _error = error);
-      },
-    );
+    _ticketsSub = widget.state
+        .watchQueue(key)
+        .listen(
+          (snapshot) {
+            if (!mounted) return;
+            setState(() {
+              _tickets = snapshot.docs.map(QueueTicket.fromDoc).toList()
+                ..sort((a, b) => a.number.compareTo(b.number));
+              _loading = false;
+            });
+          },
+          onError: (Object error) {
+            if (!mounted) return;
+            setState(() {
+              _error = error;
+              _loading = false;
+            });
+          },
+        );
+    _boardSub = widget.state
+        .watchQueueBoard(key)
+        .listen(
+          (snapshot) {
+            if (!mounted) return;
+            setState(() => _board = snapshot.data());
+          },
+          onError: (Object error) {
+            if (!mounted) return;
+            setState(() => _error = error);
+          },
+        );
     unawaited(_ensureBoard());
   }
 
@@ -120,9 +124,11 @@ class _QueuePageState extends State<QueuePage> {
           (appointment.status == AppointmentStatus.confirmada ||
               appointment.status == AppointmentStatus.pendiente) &&
           !queuedIds.contains(appointment.id);
-    }).toList()
-      ..sort((a, b) =>
-          _minutesAfterMidnight(a.time).compareTo(_minutesAfterMidnight(b.time)));
+    }).toList()..sort(
+      (a, b) =>
+          _minutesAfterMidnight(a.time)
+              .compareTo(_minutesAfterMidnight(b.time)),
+    );
   }
 
   QueueTicket? get _currentTicket {
@@ -218,18 +224,22 @@ class _QueuePageState extends State<QueuePage> {
           patientName: appointment.patientName,
           source: QueueTicketSource.appointment,
           appointmentId: appointment.id,
+          patientId: appointment.patientId,
         );
       }, successMessage: 'Llegada registrada: ${appointment.patientName}.');
 
   @override
   Widget build(BuildContext context) {
     final waiting = _waitingTickets;
-    final inService =
-        _tickets.where((t) => t.status == QueueTicketStatus.inService).length;
-    final served =
-        _tickets.where((t) => t.status == QueueTicketStatus.served).length;
-    final cancelled =
-        _tickets.where((t) => t.status == QueueTicketStatus.cancelled).length;
+    final inService = _tickets
+        .where((t) => t.status == QueueTicketStatus.inService)
+        .length;
+    final served = _tickets
+        .where((t) => t.status == QueueTicketStatus.served)
+        .length;
+    final cancelled = _tickets
+        .where((t) => t.status == QueueTicketStatus.cancelled)
+        .length;
     final current = _currentTicket;
 
     return ListView(
@@ -294,18 +304,18 @@ class _QueuePageState extends State<QueuePage> {
           onCallNext: waiting.isEmpty || current != null
               ? null
               : () => _runAction(
-                    () => widget.state.callNextQueueTicket(
-                      _queueKey,
-                      waiting.first,
-                    ),
-                    successMessage: 'Turno ${waiting.first.number} llamado.',
+                  () => widget.state.callNextQueueTicket(
+                    _queueKey,
+                    waiting.first,
                   ),
+                  successMessage: 'Turno ${waiting.first.number} llamado.',
+                ),
           onFinish: current == null
               ? null
               : () => _runAction(
-                    () => widget.state.finishQueueTicket(_queueKey, current),
-                    successMessage: 'Atención finalizada.',
-                  ),
+                  () => widget.state.finishQueueTicket(_queueKey, current),
+                  successMessage: 'Atención finalizada.',
+                ),
         ),
         const SizedBox(height: 16),
         Wrap(
@@ -392,9 +402,9 @@ class _QueuePageState extends State<QueuePage> {
               saving: _saving,
               onCancel: ticket.status == QueueTicketStatus.waiting
                   ? () => _runAction(
-                        () => widget.state.cancelQueueTicket(ticket),
-                        successMessage: 'Turno ${ticket.number} cancelado.',
-                      )
+                      () => widget.state.cancelQueueTicket(ticket),
+                      successMessage: 'Turno ${ticket.number} cancelado.',
+                    )
                   : null,
             ),
           ),
@@ -484,7 +494,9 @@ class _CurrentTurnCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      active ? 'Turno ${ticket!.number}' : 'Sin paciente en atención',
+                      active
+                          ? 'Turno ${ticket!.number}'
+                          : 'Sin paciente en atención',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -541,8 +553,10 @@ class _CurrentTurnCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(children: content.children.take(2).toList()
-                ..add(Expanded(child: content.children[2]))),
+              Row(
+                children: content.children.take(2).toList()
+                  ..add(content.children[2]),
+              ),
               const SizedBox(height: 16),
               active
                   ? FilledButton.icon(
@@ -664,10 +678,7 @@ class _QueueTicketCard extends StatelessWidget {
               IconButton(
                 tooltip: 'Cancelar turno',
                 onPressed: saving ? null : onCancel,
-                icon: const Icon(
-                  Icons.close_rounded,
-                  color: AppTheme.errorRed,
-                ),
+                icon: const Icon(Icons.close_rounded, color: AppTheme.errorRed),
               ),
           ],
         ),
@@ -827,11 +838,7 @@ class _StatusPill extends StatelessWidget {
     ),
     child: Text(
       label,
-      style: TextStyle(
-        color: color,
-        fontSize: 11,
-        fontWeight: FontWeight.w800,
-      ),
+      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800),
     ),
   );
 }
@@ -854,7 +861,10 @@ class _EmptyPanel extends StatelessWidget {
         Icon(icon, color: AppTheme.textMuted),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(text, style: const TextStyle(color: AppTheme.textSecondary)),
+          child: Text(
+            text,
+            style: const TextStyle(color: AppTheme.textSecondary),
+          ),
         ),
       ],
     ),

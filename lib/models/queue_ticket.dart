@@ -18,9 +18,8 @@ enum QueueTicketSource {
   appointment,
   walkIn;
 
-  String get label => this == QueueTicketSource.appointment
-      ? 'Con cita'
-      : 'Por llegada';
+  String get label =>
+      this == QueueTicketSource.appointment ? 'Con cita' : 'Por llegada';
 }
 
 class QueueTicket {
@@ -35,6 +34,8 @@ class QueueTicket {
     required this.source,
     required this.status,
     this.appointmentId,
+    this.patientId,
+    this.turnsAhead,
     this.registeredAt,
   });
 
@@ -48,11 +49,11 @@ class QueueTicket {
   final QueueTicketSource source;
   final QueueTicketStatus status;
   final String? appointmentId;
+  final String? patientId;
+  final int? turnsAhead;
   final DateTime? registeredAt;
 
-  factory QueueTicket.fromDoc(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+  factory QueueTicket.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     return QueueTicket(
       id: doc.id,
@@ -69,6 +70,8 @@ class QueueTicket {
         data['status'] as String? ?? QueueTicketStatus.waiting.name,
       ),
       appointmentId: data['appointmentId'] as String?,
+      patientId: data['patientId'] as String?,
+      turnsAhead: data['turnsAhead'] as int?,
       registeredAt: (data['registeredAt'] as Timestamp?)?.toDate(),
     );
   }

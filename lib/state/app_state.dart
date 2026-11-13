@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/appointment.dart';
@@ -33,14 +34,29 @@ class AppState extends ChangeNotifier {
     _listen();
   }
 
-    late final FirebaseClinicRepository _repository =
-      FirebaseClinicRepository(AuthService.instance.db);
+  late final FirebaseClinicRepository _repository = FirebaseClinicRepository(
+    AuthService.instance.db,
+  );
   final List<StreamSubscription> _subs = [];
 
   final UserRole _currentRole;
   UserRole get currentRole => _currentRole;
 
   String? get uid => AuthService.instance.currentUser?.uid;
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchMyQueueTickets(
+    DateTime date,
+  ) {
+    final userId = uid;
+    if (userId == null) {
+      throw StateError('Inicia sesión para consultar tu turno.');
+    }
+    return _repository.watchPatientQueueTickets(patientId: userId, date: date);
+  }
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchQueueBoard(
+    String queueKey,
+  ) => _repository.watchQueueBoard(queueKey);
 
   // Patient Profile Info
   String patientName = '';
@@ -67,10 +83,12 @@ class AppState extends ChangeNotifier {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     return _appointments
-        .where((a) =>
-            !a.date.isBefore(today) &&
-            (a.status == AppointmentStatus.confirmada ||
-                a.status == AppointmentStatus.pendiente))
+        .where(
+          (a) =>
+              !a.date.isBefore(today) &&
+              (a.status == AppointmentStatus.confirmada ||
+                  a.status == AppointmentStatus.pendiente),
+        )
         .toList();
   }
 
@@ -140,23 +158,23 @@ class AppState extends ChangeNotifier {
     final userId = uid;
     if (userId == null) return;
     _appointmentsSub = _repository
-      .watchAppointments(
-        patientId: _currentRole == UserRole.doctor ? null : userId,
-      )
-      .listen(
-      (snap) {
-        _appointments = snap.docs.map(Appointment.fromDoc).toList()
-          ..sort((a, b) => a.date.compareTo(b.date));
-        appointmentsLoaded = true;
-        appointmentsError = null;
-        appointmentsOffline = snap.metadata.isFromCache;
-        notifyListeners();
-      },
-      onError: (Object error) {
-        appointmentsError = error;
-        _onError(error);
-      },
-    );
+        .watchAppointments(
+          patientId: _currentRole == UserRole.doctor ? null : userId,
+        )
+        .listen(
+          (snap) {
+            _appointments = snap.docs.map(Appointment.fromDoc).toList()
+              ..sort((a, b) => a.date.compareTo(b.date));
+            appointmentsLoaded = true;
+            appointmentsError = null;
+            appointmentsOffline = snap.metadata.isFromCache;
+            notifyListeners();
+          },
+          onError: (Object error) {
+            appointmentsError = error;
+            _onError(error);
+          },
+        );
   }
 
   /// Vuelve a suscribirse a las citas después de un error.
@@ -319,12 +337,11 @@ class AppState extends ChangeNotifier {
     required Appointment appointment,
     required DateTime date,
     required String time,
-  }) =>
-      _repository.rescheduleAppointment(
-        appointment: appointment,
-        date: date,
-        time: time,
-      );
+  }) => _repository.rescheduleAppointment(
+    appointment: appointment,
+    date: date,
+    time: time,
+  );
 
   Future<void> addPatient({
     required String name,

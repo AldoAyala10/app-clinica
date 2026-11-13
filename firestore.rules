@@ -84,9 +84,11 @@ service cloud.firestore {
                     || (signedIn() && resource.data.patientId == request.auth.uid);
     }
 
-    // Los tickets contienen datos de pacientes y solo los consulta el personal.
+    // Los tickets contienen datos de pacientes; cada paciente solo lee el suyo.
     match /queueTickets/{ticketId} {
-      allow read, write: if isDoctor() || isStaff();
+      allow read: if isDoctor() || isStaff()
+                  || (signedIn() && resource.data.patientId == request.auth.uid);
+      allow write: if isDoctor() || isStaff();
     }
 
     match /queueCounters/{queueKey} {
@@ -107,6 +109,12 @@ service cloud.firestore {
                               'updatedAt'
                             ]);
       allow delete: if false;
+    }
+
+    // Los tokens de notificación solo son visibles y editables por su dueño.
+    // Cloud Functions usa Admin SDK y puede leerlos para enviar FCM.
+    match /users/{uid}/pushTokens/{tokenId} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
     }
 
     // Inventario: solo doctores.

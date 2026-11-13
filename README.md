@@ -62,6 +62,37 @@ habilitar la función en producción:
 firebase deploy --only firestore:rules
 ```
 
+### Mi Turno y notificaciones push (Sprint 8)
+
+Al registrar la llegada desde una cita vinculada a una cuenta, el ticket queda
+asociado a su `patientId`. **Mi Turno** escucha el ticket propio y el tablero
+público en tiempo real; los demás tickets y sus datos personales siguen
+privados. Cloud Functions actualiza el número de personas que esperan delante
+del paciente y envía el mensaje **“¡Prepárate! Faltan pocos turnos para que
+seas atendido.”** al llegar a exactamente dos turnos de espera. Llegadas sin
+cita no pueden recibir push si no están asociadas a una cuenta.
+
+La app registra los tokens FCM del dispositivo en
+`users/{uid}/pushTokens/{tokenHash}`. Las notificaciones se muestran como
+notificación local en primer plano y como notificación FCM del sistema en
+segundo plano o con la app cerrada. Se requiere permitir notificaciones en el
+dispositivo; en iOS también configurar una clave APNs en Firebase y habilitar
+Push Notifications para el identificador de la app en Apple Developer y Xcode,
+con perfiles de firma que incluyan el entitlement `aps-environment`.
+
+Después de publicar los índices, reglas y backend en el proyecto Firebase:
+
+```sh
+npm --prefix functions install
+npm --prefix functions test
+firebase deploy --only firestore:rules,firestore:indexes,functions
+```
+
+La recepción real de notificaciones en primer plano, segundo plano y con la
+app cerrada debe verificarse en dispositivos Android/iOS con permisos y
+credenciales APNs/FCM configurados; `flutter test` no puede simular esos
+servicios del sistema.
+
 Las cuentas de administración y recepción no pueden entrar a la app móvil. La
 baja de un paciente es lógica (`active: false`): deja de aparecer y no se le
 agendan citas, pero conserva su historial y se puede reactivar. Al crear o

@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "queueTickets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "patientId", "order": "ASCENDING" },
+        { "fieldPath": "queueDate", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

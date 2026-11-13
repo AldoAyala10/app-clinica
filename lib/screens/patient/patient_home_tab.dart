@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
 import '../../models/appointment.dart';
@@ -31,13 +32,16 @@ class _PatientHomeTabState extends State<PatientHomeTab>
     // AppState ya trae solo las citas de este paciente (por uid).
     final source = appointmentSource;
     final today = DateUtils.dateOnly(DateTime.now());
-    final result = source
-        .where((appointment) =>
-            !appointment.date.isBefore(today) &&
-            (appointment.status == AppointmentStatus.confirmada ||
-                appointment.status == AppointmentStatus.pendiente))
-        .toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+    final result =
+        source
+            .where(
+              (appointment) =>
+                  !appointment.date.isBefore(today) &&
+                  (appointment.status == AppointmentStatus.confirmada ||
+                      appointment.status == AppointmentStatus.pendiente),
+            )
+            .toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
     return result;
   }
 
@@ -117,136 +121,144 @@ class _PatientHomeTabState extends State<PatientHomeTab>
                   onAction: refreshAppointments,
                 )
               else
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF0066FF),
-                      Color(0xFF004EC2),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF0066FF), Color(0xFF004EC2)],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0066FF).withValues(alpha: 0.35),
+                        blurRadius: 22,
+                        offset: const Offset(0, 10),
+                      ),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0066FF).withValues(alpha: 0.35),
-                      blurRadius: 22,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'PRÓXIMA CITA',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white70,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        if (next != null) Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            next.status.label,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      next?.doctorName ?? 'Sin citas próximas',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      next?.specialty ?? 'Agenda una cita para comenzar',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(child: Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_today_rounded,
-                              size: 15,
-                              color: Colors.white70,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(child: Text(
-                              next == null ? 'Sin fecha' : '${next.date.day}/${next.date.month}/${next.date.year} · ${next.time}',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            )),
-                          ],
-                        )),
-                        ElevatedButton(
-                          onPressed: () => widget.onTabChange(next == null ? 2 : 1),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: AppTheme.primaryBlue,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                          ),
-                          child: Text(
-                            next == null ? 'Agendar' : 'Ver Cita',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'PRÓXIMA CITA',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w700,
+                              color: Colors.white70,
+                              letterSpacing: 1.2,
                             ),
                           ),
+                          if (next != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                next.status.label,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        next?.doctorName ?? 'Sin citas próximas',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        next?.specialty ?? 'Agenda una cita para comenzar',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: 15,
+                                  color: Colors.white70,
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    next == null
+                                        ? 'Sin fecha'
+                                        : '${next.date.day}/${next.date.month}/${next.date.year} · ${next.time}',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () =>
+                                widget.onTabChange(next == null ? 2 : 1),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppTheme.primaryBlue,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                            ),
+                            child: Text(
+                              next == null ? 'Agendar' : 'Ver Cita',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 24),
 
               const Text(
                 'Próximas citas',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               const SizedBox(height: 12),
               if (patientStatus == PatientViewStatus.ready && upcoming.isEmpty)
@@ -259,10 +271,14 @@ class _PatientHomeTabState extends State<PatientHomeTab>
                   onAction: () => widget.onTabChange(2),
                 )
               else if (patientStatus == PatientViewStatus.ready)
-                ...upcoming.take(3).map((appointment) => AppointmentCard(
-                  appointment: appointment,
-                  isDoctorView: false,
-                )),
+                ...upcoming
+                    .take(3)
+                    .map(
+                      (appointment) => AppointmentCard(
+                        appointment: appointment,
+                        isDoctorView: false,
+                      ),
+                    ),
               const SizedBox(height: 12),
 
               // Services 2x2 Grid matching Figma Screen 8
@@ -354,24 +370,21 @@ class _PatientHomeTabState extends State<PatientHomeTab>
 
               _buildTipCard(
                 title: 'Técnica de cepillado correcta',
-                description:
-                    'Cepilla tus dientes suavemente en círculos durante al menos 2 minutos, 3 veces al día.',
+                description: 'Cepilla tus dientes suavemente en círculos durante al menos 2 minutos, 3 veces al día.',
                 icon: Icons.brush_rounded,
                 color: const Color(0xFF0066FF),
               ),
               const SizedBox(height: 10),
               _buildTipCard(
                 title: 'Uso diario de hilo dental',
-                description:
-                    'El hilo dental remueve placa bacteriana donde el cepillo no alcanza. Hazlo antes de dormir.',
+                description: 'El hilo dental remueve placa bacteriana donde el cepillo no alcanza. Hazlo antes de dormir.',
                 icon: Icons.waves_rounded,
                 color: const Color(0xFF10B981),
               ),
               const SizedBox(height: 10),
               _buildTipCard(
                 title: 'Evita bebidas con alta pigmentación',
-                description:
-                    'Disminuye el consumo de café, té negro o refrescos de cola para mantener tu esmalte brillante.',
+                description: 'Disminuye el consumo de café, té negro o refrescos de cola para mantener tu esmalte brillante.',
                 icon: Icons.emoji_food_beverage_rounded,
                 color: const Color(0xFFF59E0B),
               ),

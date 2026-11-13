@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'firebase_options.dart';
+import 'services/push_notification_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/doctor/doctor_main_screen.dart';
@@ -23,6 +24,7 @@ Future<void> main() async {
     runApp(StartupErrorApp(error: e));
     return;
   }
+  await PushNotificationService.registerBackgroundHandler();
   runApp(const ClinicaDentalApp());
 }
 

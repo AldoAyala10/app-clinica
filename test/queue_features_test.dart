@@ -3,6 +3,7 @@ import 'package:app_clinica/admin/pages/queue_page.dart';
 import 'package:app_clinica/models/doctor.dart';
 import 'package:app_clinica/models/queue_ticket.dart';
 import 'package:app_clinica/repositories/firebase_clinic_repository.dart';
+import 'package:app_clinica/screens/patient/my_turn_tab.dart';
 import 'package:app_clinica/state/app_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,71 +59,100 @@ void main() {
     );
   });
 
-  test('llamar, atender y cancelar mantienen el estado y turno actual', () async {
+  test('asocia los tickets de cita a la cuenta del paciente', () async {
     final repository = FirebaseClinicRepository(db);
     final doctor = kClinicDoctors.first;
-    final date = today();
-    final first = await repository.registerQueueTicket(
+    final ticket = await repository.registerQueueTicket(
       doctorId: doctor.id,
       doctorName: doctor.name,
-      date: date,
-      patientName: 'Ana García',
-      source: QueueTicketSource.walkIn,
-    );
-    final second = await repository.registerQueueTicket(
-      doctorId: doctor.id,
-      doctorName: doctor.name,
-      date: date,
-      patientName: 'Luis Pérez',
+      date: today(),
+      patientName: 'María Moreno',
       source: QueueTicketSource.appointment,
-      appointmentId: 'appointment-2',
-    );
-    final key = FirebaseClinicRepository.queueKey(doctor.id, date);
-
-    await repository.callNextQueueTicket(queueKey: key, ticket: first);
-    expect(
-      (await db.collection('queueTickets').doc(first.id).get())
-          .data()?['status'],
-      QueueTicketStatus.inService.name,
-    );
-    expect(
-      (await db.collection('queueBoards').doc(key).get())
-          .data()?['currentTicketNumber'],
-      1,
-    );
-    await expectLater(
-      repository.callNextQueueTicket(queueKey: key, ticket: second),
-      throwsA(isA<StateError>()),
+      appointmentId: 'appointment-patient',
+      patientId: patientUid,
     );
 
-    await repository.finishQueueTicket(queueKey: key, ticket: first);
+    final saved = await db.collection('queueTickets').doc(ticket.id).get();
+    expect(saved.data()?['patientId'], patientUid);
     expect(
-      (await db.collection('queueBoards').doc(key).get())
-          .data()?['currentTicketNumber'],
-      isNull,
+      saved.data(),
+      isNot(contains('turnsAhead')),
+      reason: 'La posición se calcula en backend al cambiar la fila.',
     );
-    await repository.callNextQueueTicket(queueKey: key, ticket: second);
-    await repository.finishQueueTicket(queueKey: key, ticket: second);
-    expect(
-      (await db.collection('queueTickets').doc(second.id).get())
-          .data()?['status'],
-      QueueTicketStatus.served.name,
-    );
-
-    final third = await repository.registerQueueTicket(
-      doctorId: doctor.id,
-      doctorName: doctor.name,
-      date: date,
-      patientName: 'Eva Ruiz',
-      source: QueueTicketSource.walkIn,
-    );
-    await repository.cancelQueueTicket(third);
-    expect(
-      (await db.collection('queueTickets').doc(third.id).get())
-          .data()?['status'],
-      QueueTicketStatus.cancelled.name,
-    );
+    final ownTickets = await repository
+        .watchPatientQueueTickets(patientId: patientUid, date: today())
+        .first;
+    expect(ownTickets.docs.map((doc) => doc.id), contains(ticket.id));
   });
+
+  test(
+    'llamar, atender y cancelar mantienen el estado y turno actual',
+    () async {
+      final repository = FirebaseClinicRepository(db);
+      final doctor = kClinicDoctors.first;
+      final date = today();
+      final first = await repository.registerQueueTicket(
+        doctorId: doctor.id,
+        doctorName: doctor.name,
+        date: date,
+        patientName: 'Ana García',
+        source: QueueTicketSource.walkIn,
+      );
+      final second = await repository.registerQueueTicket(
+        doctorId: doctor.id,
+        doctorName: doctor.name,
+        date: date,
+        patientName: 'Luis Pérez',
+        source: QueueTicketSource.appointment,
+        appointmentId: 'appointment-2',
+      );
+      final key = FirebaseClinicRepository.queueKey(doctor.id, date);
+
+      await repository.callNextQueueTicket(queueKey: key, ticket: first);
+      expect(
+        (await db.collection('queueTickets').doc(first.id).get())
+            .data()?['status'],
+        QueueTicketStatus.inService.name,
+      );
+      expect(
+        (await db.collection('queueBoards').doc(key).get())
+            .data()?['currentTicketNumber'],
+        1,
+      );
+      await expectLater(
+        repository.callNextQueueTicket(queueKey: key, ticket: second),
+        throwsA(isA<StateError>()),
+      );
+
+      await repository.finishQueueTicket(queueKey: key, ticket: first);
+      expect(
+        (await db.collection('queueBoards').doc(key).get())
+            .data()?['currentTicketNumber'],
+        isNull,
+      );
+      await repository.callNextQueueTicket(queueKey: key, ticket: second);
+      await repository.finishQueueTicket(queueKey: key, ticket: second);
+      expect(
+        (await db.collection('queueTickets').doc(second.id).get())
+            .data()?['status'],
+        QueueTicketStatus.served.name,
+      );
+
+      final third = await repository.registerQueueTicket(
+        doctorId: doctor.id,
+        doctorName: doctor.name,
+        date: date,
+        patientName: 'Eva Ruiz',
+        source: QueueTicketSource.walkIn,
+      );
+      await repository.cancelQueueTicket(third);
+      expect(
+        (await db.collection('queueTickets').doc(third.id).get())
+            .data()?['status'],
+        QueueTicketStatus.cancelled.name,
+      );
+    },
+  );
 
   testWidgets('el panel muestra la fila y el endpoint público', (tester) async {
     tester.view.physicalSize = const Size(1440, 1200);
@@ -136,7 +166,9 @@ void main() {
     addTearDown(state.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: QueuePage(state: state))),
+      MaterialApp(
+        home: Scaffold(body: QueuePage(state: state)),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -152,5 +184,34 @@ void main() {
     expect(board.exists, isTrue);
     expect(board.data()?['currentStatus'], 'sin_turno');
     expect(board.data(), isNot(contains('patientName')));
+  });
+
+  testWidgets('Mi Turno refleja en vivo los turnos que faltan', (tester) async {
+    await setUpFirebase(signedInUid: patientUid);
+    final repository = FirebaseClinicRepository(db);
+    final doctor = kClinicDoctors.first;
+    final ticket = await repository.registerQueueTicket(
+      doctorId: doctor.id,
+      doctorName: doctor.name,
+      date: today(),
+      patientName: 'María Moreno',
+      source: QueueTicketSource.appointment,
+      patientId: patientUid,
+    );
+    final ticketRef = db.collection('queueTickets').doc(ticket.id);
+    await ticketRef.update({'turnsAhead': 3});
+
+    final state = AppState(role: UserRole.patient);
+    addTearDown(state.dispose);
+    await tester.pumpWidget(
+      MaterialApp(home: MyTurnTab(state: state)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Faltan 3 turnos para ti'), findsOneWidget);
+
+    await ticketRef.update({'turnsAhead': 2});
+    await tester.pumpAndSettle();
+    expect(find.text('Faltan 2 turnos para ti'), findsOneWidget);
+    expect(find.byKey(const Key('my_turn_two_ahead')), findsOneWidget);
   });
 }

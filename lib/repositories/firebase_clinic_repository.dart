@@ -69,6 +69,7 @@ class FirebaseClinicRepository {
     required String patientName,
     required QueueTicketSource source,
     String? appointmentId,
+    String? patientId,
   }) async {
     final day = queueDateKey(date);
     final key = queueKey(doctorId, date);
@@ -82,7 +83,13 @@ class FirebaseClinicRepository {
       final counterSnapshot = await transaction.get(counter);
       final ticketSnapshot = await transaction.get(ticket);
       final boardSnapshot = await transaction.get(board);
-      if (ticketSnapshot.exists) return QueueTicket.fromDoc(ticketSnapshot);
+      if (ticketSnapshot.exists) {
+        if (patientId != null &&
+            ticketSnapshot.data()?['patientId'] == null) {
+          transaction.update(ticket, {'patientId': patientId});
+        }
+        return QueueTicket.fromDoc(ticketSnapshot);
+      }
 
       final number = (counterSnapshot.data()?['lastNumber'] as int? ?? 0) + 1;
       transaction.set(counter, {'lastNumber': number});
@@ -96,6 +103,7 @@ class FirebaseClinicRepository {
         'source': source.name,
         'status': QueueTicketStatus.waiting.name,
         'appointmentId': appointmentId,
+        'patientId': patientId,
         'registeredAt': FieldValue.serverTimestamp(),
       });
       if (!boardSnapshot.exists) {
@@ -118,6 +126,7 @@ class FirebaseClinicRepository {
         source: source,
         status: QueueTicketStatus.waiting,
         appointmentId: appointmentId,
+        patientId: patientId,
       );
     });
   }
@@ -135,8 +144,7 @@ class FirebaseClinicRepository {
         throw StateError('Finaliza el turno actual antes de llamar otro.');
       }
       if (!ticketSnapshot.exists ||
-          ticketSnapshot.data()?['status'] !=
-              QueueTicketStatus.waiting.name) {
+          ticketSnapshot.data()?['status'] != QueueTicketStatus.waiting.name) {
         throw StateError('El turno ya no está disponible.');
       }
       transaction.update(ticketRef, {
@@ -201,6 +209,14 @@ class FirebaseClinicRepository {
   Stream<DocumentSnapshot<Map<String, dynamic>>> watchUser(String uid) =>
       _db.collection('users').doc(uid).snapshots();
 
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchPatientQueueTickets({
+    required String patientId,
+    required DateTime date,
+  }) => _queueTickets
+      .where('patientId', isEqualTo: patientId)
+      .where('queueDate', isEqualTo: queueDateKey(date))
+      .snapshots(includeMetadataChanges: true);
+
   Stream<QuerySnapshot<Map<String, dynamic>>> watchAppointments({
     String? patientId,
   }) =>
@@ -253,16 +269,15 @@ class FirebaseClinicRepository {
   }
 
   static String slotId(String doctorId, DateTime date, String time) {
-    final day = '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+    final day =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-'
         '${date.day.toString().padLeft(2, '0')}';
     return '${doctorId}_${day}_${time.replaceAll(' ', '')}';
   }
 
   static String? _doctorIdFromSlotId(String? value) {
     if (value == null) return null;
-    return RegExp(r'^(.+)_\d{4}-\d{2}-\d{2}_')
-        .firstMatch(value)
-        ?.group(1);
+    return RegExp(r'^(.+)_\d{4}-\d{2}-\d{2}_').firstMatch(value)?.group(1);
   }
 
   Future<bool> isSlotTaken(String doctorId, DateTime date, String time) async {
@@ -331,7 +346,8 @@ class FirebaseClinicRepository {
     final snapshot = await appointmentRef.get();
     final data = snapshot.data();
     final oldSlotId = data?['slotId'] as String?;
-    final doctorId = data?['doctorId'] as String? ??
+    final doctorId =
+        data?['doctorId'] as String? ??
         appointment.doctorId ??
         _doctorIdFromSlotId(oldSlotId);
     if (doctorId == null || doctorId.isEmpty) {
@@ -395,9 +411,11 @@ class FirebaseClinicRepository {
   /// Horarios del día que ya tiene ocupados el doctor.
   Future<Set<String>> takenTimes(String doctorId, DateTime date) async {
     final taken = <String>{};
-    await Future.wait(kTimeSlots.map((time) async {
-      if (await isSlotTaken(doctorId, date, time)) taken.add(time);
-    }));
+    await Future.wait(
+      kTimeSlots.map((time) async {
+        if (await isSlotTaken(doctorId, date, time)) taken.add(time);
+      }),
+    );
     return taken;
   }
 

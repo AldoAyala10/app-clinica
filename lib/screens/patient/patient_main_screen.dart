@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import '../../state/app_state.dart';
+import '../../services/push_notification_service.dart';
 import 'patient_home_tab.dart';
 import 'patient_appointments_tab.dart';
 import 'book_appointment_tab.dart';
 import 'patient_profile_tab.dart';
+import 'my_turn_tab.dart';
 
 class PatientMainScreen extends StatefulWidget {
   const PatientMainScreen({super.key});
@@ -17,11 +21,15 @@ class PatientMainScreen extends StatefulWidget {
 class _PatientMainScreenState extends State<PatientMainScreen> {
   int _currentIndex = 0;
   late final AppState _state;
+  late final PushNotificationService _pushNotifications;
 
   @override
   void initState() {
     super.initState();
     _state = AppState(role: UserRole.patient);
+    _pushNotifications = PushNotificationService();
+    final uid = _state.uid;
+    if (uid != null) unawaited(_pushNotifications.initialize(uid));
     _state.addListener(() {
       if (mounted) setState(() {});
     });
@@ -29,6 +37,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
 
   @override
   void dispose() {
+    unawaited(_pushNotifications.dispose());
     _state.dispose();
     super.dispose();
   }
@@ -61,6 +70,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
         },
       ),
       PatientProfileTab(state: _state),
+      MyTurnTab(state: _state),
     ];
 
     return Scaffold(
@@ -116,25 +126,40 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(
-                  index: 0,
-                  icon: Icons.home_rounded,
-                  label: 'Inicio',
+                Expanded(
+                  child: _buildNavItem(
+                    index: 0,
+                    icon: Icons.home_rounded,
+                    label: 'Inicio',
+                  ),
                 ),
-                _buildNavItem(
-                  index: 1,
-                  icon: Icons.calendar_month_rounded,
-                  label: 'Mis Citas',
+                Expanded(
+                  child: _buildNavItem(
+                    index: 1,
+                    icon: Icons.calendar_month_rounded,
+                    label: 'Mis Citas',
+                  ),
                 ),
-                _buildNavItem(
-                  index: 2,
-                  icon: Icons.add_circle_outline_rounded,
-                  label: 'Agendar',
+                Expanded(
+                  child: _buildNavItem(
+                    index: 2,
+                    icon: Icons.add_circle_outline_rounded,
+                    label: 'Agendar',
+                  ),
                 ),
-                _buildNavItem(
-                  index: 3,
-                  icon: Icons.person_rounded,
-                  label: 'Mi Perfil',
+                Expanded(
+                  child: _buildNavItem(
+                    index: 3,
+                    icon: Icons.person_rounded,
+                    label: 'Mi Perfil',
+                  ),
+                ),
+                Expanded(
+                  child: _buildNavItem(
+                    index: 4,
+                    icon: Icons.confirmation_number_outlined,
+                    label: 'Mi Turno',
+                  ),
                 ),
               ],
             ),
@@ -159,7 +184,7 @@ class _PatientMainScreenState extends State<PatientMainScreen> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.primaryBlue.withValues(alpha: 0.1)
